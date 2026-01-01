@@ -1,0 +1,486 @@
+# Create or update user profile
+mutation UpsertUserProfile($displayName: String, $role: String) @auth(level: USER, insecureReason: "Owner creates their own profile") {
+  user_upsert(
+    data: {
+      id_expr: "auth.uid"
+      email_expr: "auth.token.email"
+      displayName: $displayName
+      role: $role
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation CreateLicense(
+  $stateId: UUID!
+  $licenseNumber: String!
+  $licenseType: String!
+  $issueDate: Date!
+  $expirationDate: Date!
+  $verificationStatus: String!
+  $supervisedHoursInState: Int
+  $supervisedYearsInState: Int
+) @auth(level: USER, insecureReason: "Users add their own licenses") {
+  license_insert(
+    data: {
+      userId_expr: "auth.uid"
+      stateId: $stateId
+      licenseNumber: $licenseNumber
+      licenseType: $licenseType
+      issueDate: $issueDate
+      expirationDate: $expirationDate
+      verificationStatus: $verificationStatus
+      supervisedHoursInState: $supervisedHoursInState
+      supervisedYearsInState: $supervisedYearsInState
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Update license verification status
+mutation UpdateLicenseVerification(
+  $licenseId: UUID!
+  $verificationStatus: String!
+  $verificationMethod: String
+) @auth(level: USER, insecureReason: "Example mutation for initial setup - should verify ownership in production") {
+  license_update(
+    id: $licenseId
+    data: {
+      verificationStatus: $verificationStatus
+      verificationMethod: $verificationMethod
+      verificationDate_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Update license FPA status
+mutation UpdateLicenseFPAStatus(
+  $licenseId: UUID!
+  $fpaStatus: String!
+  $fpaEligibilityDate: Date
+  $supervisedHoursInState: Int
+  $supervisedYearsInState: Int
+) @auth(level: USER, insecureReason: "Owner updates status") {
+  license_update(
+    id: $licenseId
+    data: {
+      fpaStatus: $fpaStatus
+      fpaApplicationDate: $fpaEligibilityDate
+      supervisedHoursInState: $supervisedHoursInState
+      supervisedYearsInState: $supervisedYearsInState
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Create a new conversation between two users
+mutation CreateConversation(
+  $participantUserId: String!
+  $agreementId: UUID
+) @auth(level: USER, insecureReason: "Participant starts chat") {
+  conversation_insert(
+    data: {
+      conversationId_expr: "auth.uid"
+      npUserId_expr: "auth.uid"
+      physicianUserId: $participantUserId
+      collaborationAgreementId: $agreementId
+      status: "active"
+      contactInfoUnlocked: false
+      unreadCountNp: 0
+      unreadCountPhysician: 0
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Send a message in a conversation
+mutation SendMessage(
+  $conversationId: UUID!
+  $messageBody: String!
+) @auth(level: USER, insecureReason: "Participant sends message") {
+  message_insert(
+    data: {
+      conversationId: $conversationId
+      senderId_expr: "auth.uid"
+      messageType: "text"
+      messageBody: $messageBody
+      containsBlockedContent: false
+      deletedBySender: false
+      deletedByRecipient: false
+      deliveredAt_expr: "request.time"
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Mark a message as read
+mutation MarkMessageAsRead($messageId: UUID!) @auth(level: USER, insecureReason: "Participant marks read") {
+  message_update(
+    id: $messageId
+    data: {
+      readAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Update a message as blocked
+mutation UpdateMessageBlocked(
+  $messageId: UUID!
+  $originalBody: String!
+  $blockedContentType: String!
+) @auth(level: USER, insecureReason: "System blocks content") {
+  message_update(
+    id: $messageId
+    data: {
+      containsBlockedContent: true
+      blockedContentType: $blockedContentType
+      originalMessageBody: $originalBody
+      messageBody: "[This message contained contact information and has been blocked for HIPAA compliance. Contact details will be available once your CPA is signed by both parties.]"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Create a message audit log entry
+mutation CreateMessageAuditLog(
+  $conversationId: UUID!
+  $actionType: String!
+  $userId: String!
+  $actionDetails: String!
+) @auth(level: USER, insecureReason: "System log") {
+  messageAuditLog_insert(
+    data: {
+      conversationId: $conversationId
+      actionType: $actionType
+      userId: $userId
+      actionDetails: $actionDetails
+      createdAt_expr: "request.time"
+    }
+  )
+}
+
+# Create physician directory profile
+mutation CreatePhysicianDirectory(
+  $userId: String!
+  $availableStates: String!
+  $specialtyType: String!
+  $maxNPs: Int!
+  $currentNPCount: Int!
+  $availableForNewNPs: Boolean!
+  $supervisionModel: String!
+) @auth(level: USER, insecureReason: "Owner creates profile") {
+  providerDirectory_insert(
+    data: {
+      physicianId: $userId
+      isActive: true
+      profileVisibility: "public"
+      availableStates: $availableStates
+      totalNpCapacity: $maxNPs
+      currentNpCount: $currentNPCount
+      availableSpots: $maxNPs
+      primarySpecialty: $specialtyType
+      supervisionModel: $supervisionModel
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+      lastActiveAt_expr: "request.time"
+    }
+  )
+}
+
+# Create NP directory profile
+mutation CreateNPDirectory(
+  $userId: String!
+  $seekingStates: String!
+  $licensedStates: String!
+  $specialtyType: String!
+  $needsCPA: Boolean!
+  $cpaNeededStates: String
+) @auth(level: USER, insecureReason: "Owner creates profile") {
+  npDirectory_insert(
+    data: {
+      npId: $userId
+      isActive: true
+      profileVisibility: "public"
+      seekingStates: $seekingStates
+      licensedStates: $licensedStates
+      cpaNeededStates: $cpaNeededStates
+      primarySpecialty: $specialtyType
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+      lastActiveAt_expr: "request.time"
+    }
+  )
+}
+
+# Update physician directory profile
+mutation UpdatePhysicianDirectoryProfile(
+  $userId: String!
+  $availableForNewNPs: Boolean
+  $maxNPs: Int
+  $availableSpots: Int
+  $currentNpCount: Int
+  $isActive: Boolean
+  $profileVisibility: String
+  $availableStates: String
+  $primarySpecialty: String
+  $supervisionModel: String
+  $hourlyRate: Float
+  $revenueSharePercentage: Float
+) @auth(level: USER, insecureReason: "Owner updates profile") {
+  providerDirectory_update(
+    key: { physicianId: $userId }
+    data: {
+      totalNpCapacity: $maxNPs
+      availableSpots: $availableSpots
+      currentNpCount: $currentNpCount
+      isActive: $isActive
+      profileVisibility: $profileVisibility
+      availableStates: $availableStates
+      primarySpecialty: $primarySpecialty
+      supervisionModel: $supervisionModel
+      hourlyRate: $hourlyRate
+      revenueSharePercentage: $revenueSharePercentage
+      updatedAt_expr: "request.time"
+      lastActiveAt_expr: "request.time"
+    }
+  )
+}
+
+# Update NP directory profile
+mutation UpdateNPDirectoryProfile(
+  $userId: String!
+  $isActive: Boolean
+  $profileVisibility: String
+  $seekingStates: String
+  $licensedStates: String
+  $cpaNeededStates: String
+  $primarySpecialty: String
+  $hoursPerWeekAvailable: Int
+  $preferredCompensationModel: String
+) @auth(level: USER, insecureReason: "Owner updates profile") {
+  npDirectory_update(
+    key: { npId: $userId }
+    data: {
+      isActive: $isActive
+      profileVisibility: $profileVisibility
+      seekingStates: $seekingStates
+      licensedStates: $licensedStates
+      cpaNeededStates: $cpaNeededStates
+      primarySpecialty: $primarySpecialty
+      hoursPerWeekAvailable: $hoursPerWeekAvailable
+      preferredCompensationModel: $preferredCompensationModel
+      updatedAt_expr: "request.time"
+      lastActiveAt_expr: "request.time"
+    }
+  )
+}
+
+# Create match request
+mutation CreateDirectoryMatch(
+  $requestingUserId: String!
+  $targetUserId: String!
+  $stateId: UUID!
+  $initiatedBy: String!
+) @auth(level: USER, insecureReason: "User requests match") {
+  directoryMatch_insert(
+    data: {
+      npId: $requestingUserId
+      physicianId: $targetUserId
+      stateId: $stateId
+      status: "pending"
+      initiatedBy: $initiatedBy
+      firstContactAt_expr: "request.time"
+      lastContactAt_expr: "request.time"
+      messageCount: 0
+      agreedToCollaborate: false
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Update match status
+mutation UpdateMatchStatus(
+  $matchId: UUID!
+  $status: String!
+  $declinedBy: String
+  $declineReason: String
+) @auth(level: USER, insecureReason: "Participant updates status") {
+  directoryMatch_update(
+    id: $matchId
+    data: {
+      status: $status
+      declinedBy: $declinedBy
+      declineReason: $declineReason
+      declinedAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Create a collaboration agreement
+mutation CreateCollaborationAgreement(
+  $npLicenseId: UUID!
+  $physicianLicenseId: UUID!
+  $stateId: UUID!
+  $docusignUrl: String
+) @auth(level: USER, insecureReason: "Participants create agreement") {
+  collaborationAgreement_insert(
+    data: {
+      npLicenseId: $npLicenseId
+      physicianLicenseId: $physicianLicenseId
+      stateId: $stateId
+      status: "draft"
+      isActive: false
+      docusignUrl: $docusignUrl
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Sign a collaboration agreement
+mutation SignAgreement(
+  $agreementId: UUID!
+  $mediaId: UUID!
+  $signatureMethod: String!
+  $ipAddress: String
+  $userAgent: String
+) @auth(level: USER, insecureReason: "Participant signs") {
+  documentSignature_upsert(
+    data: {
+      mediaId: $mediaId
+      signerId_expr: "auth.uid"
+      signedAt_expr: "request.time"
+      signatureMethod: $signatureMethod
+      ipAddress: $ipAddress
+      userAgent: $userAgent
+      createdAt_expr: "request.time"
+    }
+  )
+}
+
+# Activate a collaboration agreement (when both parties have signed)
+mutation ActivateAgreement($agreementId: UUID!) @auth(level: USER, insecureReason: "System activation") {
+  collaborationAgreement_update(
+    id: $agreementId
+    data: {
+      status: "active"
+      isActive: true
+      boardApprovalDate_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Terminate a collaboration agreement
+mutation TerminateAgreement(
+  $agreementId: UUID!
+  $terminationReason: String!
+  $terminationResponsibility: String
+) @auth(level: USER, insecureReason: "Participant terminates") {
+  collaborationAgreement_update(
+    id: $agreementId
+    data: {
+      status: "terminated"
+      isActive: false
+      terminationDate_expr: "request.time"
+      terminationReason: $terminationReason
+      terminationResponsibility: $terminationResponsibility
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Unlock contact info in a conversation (after CPA activation)
+mutation UnlockConversationContactInfo($conversationId: UUID!) @auth(level: USER, insecureReason: "System unlock") {
+  conversation_update(
+    id: $conversationId
+    data: {
+      contactInfoUnlocked: true
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Submit a new chart review
+mutation SubmitChartReview(
+  $agreementId: UUID!
+  $reviewDate: Date!
+  $isTimely: Boolean!
+  $chartIdentifier: String
+  $notes: String
+  $reviewPercentage: Float
+  $isControlledSubstanceChart: Boolean
+) @auth(level: USER, insecureReason: "Reviewer submits") {
+  chartReview_insert(
+    data: {
+      collaborationAgreementId: $agreementId
+      reviewerId_expr: "auth.uid"
+      reviewDate: $reviewDate
+      isTimely: $isTimely
+      chartIdentifier: $chartIdentifier
+      notes: $notes
+      reviewPercentage: $reviewPercentage
+      isControlledSubstanceChart: $isControlledSubstanceChart
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Schedule a QA meeting
+mutation ScheduleQAMeeting(
+  $agreementId: UUID!
+  $meetingDate: Timestamp!
+  $meetingType: String
+  $notes: String
+) @auth(level: USER, insecureReason: "Host schedules") {
+  qualityAssuranceMeeting_insert(
+    data: {
+      collaborationAgreementId: $agreementId
+      hostId_expr: "auth.uid"
+      meetingDate: $meetingDate
+      meetingType: $meetingType
+      notes: $notes
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Complete QA meeting (update existing meeting)
+mutation CompleteQAMeeting(
+  $meetingId: UUID!
+  $notes: String
+  $meetingDocumentUrl: String
+) @auth(level: USER, insecureReason: "Participant updates meeting") {
+  qualityAssuranceMeeting_update(
+    id: $meetingId
+    data: {
+      notes: $notes
+      meetingDocumentUrl: $meetingDocumentUrl
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Update chart review with document reference
+mutation UpdateChartReviewDocument(
+  $reviewId: UUID!
+  $notes: String
+) @auth(level: USER, insecureReason: "Participant updates review") {
+  chartReview_update(
+    id: $reviewId
+    data: {
+      notes: $notes
+      updatedAt_expr: "request.time"
+    }
+  )
+}

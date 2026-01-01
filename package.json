@@ -1,0 +1,19 @@
+{
+  "name": "cpa_app_finn",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated",
+    "firebase": "^12.7.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.0.0"
+  }
+}

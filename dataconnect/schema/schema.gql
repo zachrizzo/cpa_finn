@@ -1,0 +1,429 @@
+# Data Connect Schema for Finn
+type User @table(key: ["id"]) {
+  id: String!
+  email: String!
+  createdAt: Timestamp!
+  displayName: String
+  role: String
+  updatedAt: Timestamp
+}
+
+type State @table {
+  stateCode: String!
+  stateName: String!
+  fpaAvailable: Boolean!
+  paVerificationRequired: Boolean!
+  nursysCompatible: Boolean!
+  fpaAutomaticWithLicense: Boolean
+  fpaRequiresApplication: Boolean
+  fpaHoursRequired: Int
+  fpaYearsRequired: Int
+  fpaWithinStateRequired: Boolean
+  fpaCmeHoursRequired: Int
+  fpaVerificationRequired: Boolean
+  fpaVerificationMethod: String
+  fpaVerificationTextToFind: String
+  fpaFieldLocation: String
+  cpaRequired: Boolean
+  physicianNpRatio: String
+  ratioIsFte: Boolean
+  rxAuthoritySeparateApplication: Boolean
+  rxAuthorityWithCpa: Boolean
+  rxAuthorityWithFpa: Boolean
+  paVerificationMethod: String
+  paVerificationTextToFind: String
+  paFieldLocation: String
+  chartReviewFrequency: String
+  chartReviewPercentage: Float
+  chartReviewControlledSubstancesOnly: Boolean
+  qaMeetingFrequency: String
+  qaMeetingDurationMonths: Int
+  boardFilingRequired: Boolean
+  boardFilingWho: String
+  boardFilingFee: Float
+  boardPortalUrl: String
+  licenseVerificationUrl: String
+  licenseVerificationInstructions: String
+  complianceNotes: String
+  boardFilingPathway: String!
+  boardFilingMethod: String
+  boardFilingApprovalTimeline: String
+  boardPortalLoginUrl: String
+  boardFilingInstructionsUrl: String
+  hasRatioLimit: Boolean!
+  ratioNote: String
+  cpaRenewalFrequency: String
+  cpaAutoRenews: Boolean
+  physicianPaymentModel: String
+  averagePhysicianRate: Float
+  updatedAt: Timestamp
+}
+
+type License @table {
+  user: User!
+  state: State!
+  licenseNumber: String!
+  licenseType: String!
+  issueDate: Date!
+  expirationDate: Date!
+  verificationStatus: String!
+  createdAt: Timestamp!
+  verificationDate: Timestamp
+  verificationMethod: String
+  licenseDocumentUrl: String
+  publicVerificationUrl: String
+  lastVerificationCheck: Timestamp
+  autoVerificationAvailable: Boolean
+  fpaStatus: String
+  fpaApplicationDate: Date
+  fpaApprovalDate: Date
+  fpaVerifiedOnPortal: Boolean
+  rxAuthorityStatus: String
+  rxAuthorityApplicationDate: Date
+  rxAuthorityApprovalDate: Date
+  rxAuthorityNumber: String
+  rxAuthorityVerifiedOnPortal: Boolean
+  supervisedHoursInState: Int
+  supervisedYearsInState: Int
+  notes: String
+  updatedAt: Timestamp
+}
+
+type LicenseVerificationAttempt @table {
+  license: License!
+  verificationMethod: String!
+  attemptedAt: Timestamp!
+  success: Boolean!
+  createdAt: Timestamp!
+  errorMessage: String
+  verificationData: String
+  verifiedByUser: User
+}
+
+type CollaborationAgreement @table {
+  npLicense: License!
+  physicianLicense: License!
+  state: State!
+  docusignUrl: String
+  status: String!
+  boardFilingDate: Date
+  boardApprovalDate: Date
+  isActive: Boolean!
+  terminationDate: Date
+  terminationReason: String
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+  isBoardReported: Boolean
+  boardReportingStatus: String
+  boardReportingInstructions: String
+  terminationResponsibility: String
+}
+
+type ChartReview @table {
+  collaborationAgreement: CollaborationAgreement!
+  reviewer: User!
+  reviewDate: Date!
+  isTimely: Boolean!
+  notes: String
+  chartIdentifier: String
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+  reviewPercentage: Float
+  isControlledSubstanceChart: Boolean
+}
+
+type QualityAssuranceMeeting @table {
+  collaborationAgreement: CollaborationAgreement!
+  meetingDate: Timestamp!
+  host: User!
+  notes: String
+  meetingDocumentUrl: String
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+  meetingType: String
+}
+
+type MeetingAttendee @table(key: ["meeting", "attendee"]) {
+  meeting: QualityAssuranceMeeting!
+  attendee: User!
+}
+
+type Conversation @table {
+  conversationId: UUID!
+  npUser: User!
+  physicianUser: User!
+  collaborationAgreement: CollaborationAgreement
+  status: String!
+  contactInfoUnlocked: Boolean!
+  lastMessageAt: Timestamp
+  unreadCountNp: Int
+  unreadCountPhysician: Int
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type Message @table {
+  conversation: Conversation!
+  sender: User!
+  messageType: String!
+  messageBody: String
+  containsBlockedContent: Boolean
+  blockedContentType: String
+  originalMessageBody: String
+  readAt: Timestamp
+  deliveredAt: Timestamp
+  deletedBySender: Boolean
+  deletedByRecipient: Boolean
+  replyToMessage: Message
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type Media @table {
+  mediaId: String!
+  uploader: User!
+  owner: User!
+  mediaType: String!
+  fileName: String!
+  fileUrl: String!
+  fileSize: Int!
+  mimeType: String!
+  status: String!
+  isPublic: Boolean!
+  containsPhi: Boolean!
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+  expiresAt: Timestamp
+  reviewDate: Timestamp
+  reviewedBy: User
+  rejectionReason: String
+  notes: String
+  encryptedAtRest: Boolean!
+  virusScanStatus: String!
+  virusScanDate: Timestamp
+}
+
+type MessageAttachment @table {
+  message: Message!
+  media: Media!
+  attachmentType: String!
+  downloadCount: Int
+  expiresAt: Timestamp
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type AttachmentDownload @table {
+  attachment: MessageAttachment!
+  downloadedBy: User!
+  downloadedAt: Timestamp!
+  ipAddress: String
+  userAgent: String
+  createdAt: Timestamp!
+}
+
+type SharedChart @table {
+  message: Message!
+  media: Media!
+  sharedBy: User!
+  sharedWith: User!
+  chartType: String!
+  patientIdentifier: String
+  chartDate: Date
+  viewedByRecipient: Boolean
+  viewedAt: Timestamp
+  downloadedByRecipient: Boolean
+  downloadedAt: Timestamp
+  retentionPeriodYears: Int!
+  autoDeleteAt: Timestamp
+  notes: String
+  isForReviewRequired: Boolean
+  linkedChartReview: ChartReview
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type MessageReaction @table(key: ["message", "user"]) {
+  message: Message!
+  user: User!
+  reactionType: String!
+  createdAt: Timestamp!
+}
+
+type MessageAuditLog @table {
+  conversation: Conversation!
+  actionType: String!
+  user: User!
+  targetMessage: Message
+  targetMedia: Media
+  actionDetails: String
+  ipAddress: String
+  userAgent: String
+  containedPhi: Boolean
+  createdAt: Timestamp!
+}
+
+type FileUploadPolicy @table {
+  policyId: String!
+  maxFileSizeMb: Int!
+  allowedFileTypes: String!
+  blockedFileTypes: String!
+  requireVirusScan: Boolean!
+  virusScanProvider: String
+  requireEncryption: Boolean!
+  defaultRetentionDays: Int
+  autoDeleteNonPhiDays: Int
+  retainPhiYears: Int!
+  notifyOnLargeFile: Boolean
+  largeFileSizeThresholdMb: Int
+  updatedAt: Timestamp
+}
+
+type BoardFilingDocumentRequirement @table {
+  state: State!
+  documentType: String!
+  documentName: String!
+  isRequired: Boolean!
+  uploadInstructions: String!
+  acceptedFileTypes: String!
+  boardPortalField: String
+  exampleFileUrl: String
+  notes: String
+  displayOrder: Int
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type BoardFilingUpload @table {
+  collaborationAgreement: CollaborationAgreement!
+  documentRequirement: BoardFilingDocumentRequirement!
+  uploadedBy: User!
+  media: Media!
+  status: String!
+  reviewedBy: User
+  reviewedAt: Timestamp
+  rejectionReason: String
+  notes: String
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type BoardFilingSubmission @table {
+  collaborationAgreement: CollaborationAgreement!
+  state: State!
+  status: String!
+  submittedBy: User
+  submittedAt: Timestamp
+  submissionMethod: String
+  confirmationNumber: String
+  filingFee: Float
+  feePaymentStatus: String
+  feePaymentDate: Date
+  feePaymentMethod: String
+  boardApprovalDate: Date
+  boardRejectionDate: Date
+  boardRejectionReason: String
+  boardNotesFromPortal: String
+  documentsComplete: Boolean
+  documentsCheckedAt: Timestamp
+  documentsCheckedBy: User
+  nextActionDueDate: Date
+  nextActionDescription: String
+  reminderSentAt: Timestamp
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type ProviderDirectory @table(key: ["physician"]) {
+  physician: User!
+  isActive: Boolean!
+  profileVisibility: String!
+  availableStates: String!
+  preferredStates: String
+  notAcceptingStates: String
+  totalNpCapacity: Int
+  currentNpCount: Int
+  availableSpots: Int
+  primarySpecialty: String!
+  secondarySpecialties: String
+  supervisionModel: String!
+  hourlyRate: Float
+  revenueSharePercentage: Float
+  minimumHoursRequired: Int
+  maximumHoursOffered: Int
+  responseTime: String
+  preferredContactMethod: String
+  yearsSupervising: Int
+  totalNpSupervised: Int
+  currentNpTestimonials: String
+  isVerified: Boolean
+  verifiedAt: Timestamp
+  isPremiumPhysician: Boolean
+  badges: String
+  searchKeywords: String
+  lastActiveAt: Timestamp
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type NpDirectory @table(key: ["np"]) {
+  np: User!
+  isActive: Boolean!
+  profileVisibility: String!
+  seekingStates: String!
+  licensedStates: String!
+  fpaStates: String
+  cpaNeededStates: String
+  hoursPerWeekAvailable: Int
+  startDateAvailability: Date
+  primarySpecialty: String!
+  secondarySpecialties: String
+  yearsExperience: Int
+  totalPatientsSeen: Int
+  preferredCompensationModel: String
+  budgetRange: String
+  searchKeywords: String
+  lastActiveAt: Timestamp
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type DirectoryMatch @table {
+  np: User!
+  physician: User!
+  state: State!
+  status: String!
+  initiatedBy: String!
+  firstContactAt: Timestamp!
+  lastContactAt: Timestamp
+  messageCount: Int
+  agreedToCollaborate: Boolean
+  agreedAt: Timestamp
+  declinedBy: String
+  declinedAt: Timestamp
+  declineReason: String
+  collaborationAgreement: CollaborationAgreement
+  createdAt: Timestamp!
+  updatedAt: Timestamp
+}
+
+type DocumentSignature @table(key: ["media", "signer"]) {
+  media: Media!
+  signer: User!
+  signedAt: Timestamp!
+  signatureMethod: String!
+  ipAddress: String
+  userAgent: String
+  createdAt: Timestamp!
+}
+
+type DocumentShare @table {
+  media: Media!
+  sharedBy: User!
+  sharedWith: User!
+  sharedAt: Timestamp!
+  accessLevel: String!
+  expiresAt: Timestamp
+  purpose: String
+  createdAt: Timestamp!
+}

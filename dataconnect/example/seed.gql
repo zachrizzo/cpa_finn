@@ -1,0 +1,269 @@
+# Seed initial states
+mutation SeedStates @auth(level: PUBLIC, insecureReason: "Initial seeding") {
+  # FPA States - Automatic with license
+  ak: state_insert(data: {
+    stateCode: "AK"
+    stateName: "Alaska"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://www.commerce.alaska.gov/cbp/main/search/professional"
+    complianceNotes: "Alaska NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  dc: state_insert(data: {
+    stateCode: "DC"
+    stateName: "District of Columbia"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "DC NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  nh: state_insert(data: {
+    stateCode: "NH"
+    stateName: "New Hampshire"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "New Hampshire NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  or: state_insert(data: {
+    stateCode: "OR"
+    stateName: "Oregon"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "Oregon NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  ri: state_insert(data: {
+    stateCode: "RI"
+    stateName: "Rhode Island"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "Rhode Island NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  ut: state_insert(data: {
+    stateCode: "UT"
+    stateName: "Utah"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "Utah NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  wy: state_insert(data: {
+    stateCode: "WY"
+    stateName: "Wyoming"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "Wyoming NP license grants automatic FPA and Rx authority. No CPA required."
+  })
+
+  # CPA States - Require collaboration agreements
+  ct: state_insert(data: {
+    stateCode: "CT"
+    stateName: "Connecticut"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: true
+    fpaHoursRequired: 2000
+    fpaYearsRequired: 3
+    fpaWithinStateRequired: true
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://www.elicense.ct.gov/Lookup/LicenseLookup.aspx"
+    complianceNotes: "Connecticut requires 3 years or 2,000 hours of supervised practice within CT to qualify for FPA. CPA effective upon signature by both parties."
+  })
+
+  il: state_insert(data: {
+    stateCode: "IL"
+    stateName: "Illinois"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: true
+    fpaHoursRequired: 4000
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    qaMeetingFrequency: "monthly"
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://online-dfpr.micropact.com/lookup/licenselookup.aspx"
+    complianceNotes: "Illinois FPA requires 4,000 hours of supervised practice and 250 hours of continuing education. CPA effective upon signature. Monthly QA meetings required."
+  })
+
+  ma: state_insert(data: {
+    stateCode: "MA"
+    stateName: "Massachusetts"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: true
+    fpaYearsRequired: 2
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://checkahealthlicense.mass.gov/"
+    complianceNotes: "Massachusetts requires 2 years of supervision for prescriptive practice. CPA effective upon signature. Must apply for independent prescriptive authority separately."
+  })
+
+  mi: state_insert(data: {
+    stateCode: "MI"
+    stateName: "Michigan"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: true
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "Michigan license allows FPA, but CPA required for Medicaid participation. CPA effective upon signature and must be maintained in records."
+  })
+
+  nj: state_insert(data: {
+    stateCode: "NJ"
+    stateName: "New Jersey"
+    fpaAvailable: false
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    complianceNotes: "New Jersey always requires CPA. No FPA route available. CPA effective upon signature by both parties."
+  })
+
+  vt: state_insert(data: {
+    stateCode: "VT"
+    stateName: "Vermont"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: true
+    fpaHoursRequired: 2400
+    fpaYearsRequired: 2
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://secure.professionals.vermont.gov/prweb/PRServletCustom/app/NGLPGuestUser_/V9csDxL3sXkkjMC_FR2HrA*/!STANDARD?UserIdentifier=LicenseLookupGuestUser"
+    complianceNotes: "Vermont FPA requires 24 months and 2,400 hours, then 12 months and 1,200 hours for additional population focus. CPA effective upon signature."
+  })
+
+  wi: state_insert(data: {
+    stateCode: "WI"
+    stateName: "Wisconsin"
+    fpaAvailable: false
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: false
+    paVerificationRequired: false
+    nursysCompatible: false
+    cpaRequired: true
+    boardFilingRequired: false
+    hasRatioLimit: false
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://licensesearch.wi.gov/"
+    complianceNotes: "Wisconsin always requires CPA. No FPA route available. CPA effective upon signature by both parties."
+  })
+
+  # Previously seeded states
+  tx: state_insert(data: {
+    stateCode: "TX"
+    stateName: "Texas"
+    fpaAvailable: false
+    paVerificationRequired: true
+    nursysCompatible: true
+    cpaRequired: true
+    boardFilingRequired: true
+    hasRatioLimit: true
+    physicianNpRatio: "7:1"
+    ratioIsFte: true
+    chartReviewFrequency: "monthly"
+    chartReviewPercentage: 10.0
+    qaMeetingFrequency: "monthly"
+    boardFilingPathway: "board_reporting"
+    boardPortalUrl: "https://profile.tmb.state.tx.us"
+    licenseVerificationUrl: "https://profile.tmb.state.tx.us/Search.aspx"
+    complianceNotes: "Texas always requires CPA. No FPA route. Ratio is 7 FTE NPs to 1 physician. Monthly chart review of 10% required. Monthly QA meetings for first year. Board reporting required."
+  })
+
+  ca: state_insert(data: {
+    stateCode: "CA"
+    stateName: "California"
+    fpaAvailable: true
+    fpaAutomaticWithLicense: false
+    fpaRequiresApplication: true
+    fpaHoursRequired: 4600
+    fpaYearsRequired: 3
+    fpaWithinStateRequired: true
+    paVerificationRequired: false
+    nursysCompatible: true
+    cpaRequired: false
+    boardFilingRequired: false
+    hasRatioLimit: true
+    physicianNpRatio: "4:1"
+    boardFilingPathway: "non_reporting"
+    licenseVerificationUrl: "https://search.dca.ca.gov/"
+    complianceNotes: "California FPA requires 3 years or 4,600 hours of supervised practice within CA. Furnishing license required for Rx authority before establishing CPA. CPA effective upon signature. 4:1 ratio when CPA is used."
+  })
+}

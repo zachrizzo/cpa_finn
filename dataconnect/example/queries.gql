@@ -1,0 +1,833 @@
+# List all states with their compliance requirements
+query ListStates @auth(level: PUBLIC, insecureReason: "State compliance information is public data") {
+  states {
+    id
+    stateCode
+    stateName
+    fpaAvailable
+    paVerificationRequired
+    cpaRequired
+    boardFilingRequired
+    licenseVerificationUrl
+    complianceNotes
+  }
+}
+
+# Get state by code
+query GetStateByCode($stateCode: String!) @auth(level: PUBLIC, insecureReason: "State compliance information is public data") {
+  states(where: { stateCode: { eq: $stateCode } }, limit: 1) {
+    id
+    stateCode
+    stateName
+    fpaAvailable
+    fpaAutomaticWithLicense
+    fpaRequiresApplication
+    fpaHoursRequired
+    fpaYearsRequired
+    fpaWithinStateRequired
+    cpaRequired
+    physicianNpRatio
+    boardFilingRequired
+    boardPortalUrl
+    licenseVerificationUrl
+    complianceNotes
+  }
+}
+
+# Get a specific state by ID
+query GetStateById($id: UUID!) @auth(level: PUBLIC, insecureReason: "State compliance information is public data") {
+  state(id: $id) {
+    stateCode
+    stateName
+    fpaAvailable
+    paVerificationRequired
+    nursysCompatible
+    fpaAutomaticWithLicense
+    fpaRequiresApplication
+    fpaHoursRequired
+    fpaYearsRequired
+    cpaRequired
+    physicianNpRatio
+    boardFilingRequired
+    boardFilingWho
+    boardFilingFee
+    boardPortalUrl
+    licenseVerificationUrl
+    complianceNotes
+  }
+}
+
+# Get current user's profile
+query GetMyProfile @auth(level: USER, insecureReason: "Owner views profile") {
+  user(key: { id_expr: "auth.uid" }) {
+    email
+    displayName
+    role
+    createdAt
+    updatedAt
+  }
+}
+
+# Get current user's licenses
+query GetMyLicenses @auth(level: USER, insecureReason: "Owner views licenses") {
+  licenses(where: { user: { id: { eq_expr: "auth.uid" } } }) {
+    id
+    licenseNumber
+    licenseType
+    issueDate
+    expirationDate
+    verificationStatus
+    fpaStatus
+    rxAuthorityStatus
+    state {
+      stateCode
+      stateName
+    }
+  }
+}
+
+# Get license with FPA eligibility info
+query GetLicenseWithFPAEligibility($licenseId: UUID!) @auth(level: USER, insecureReason: "Owner views their own license") {
+  license(id: $licenseId) {
+    id
+    licenseNumber
+    licenseType
+    issueDate
+    expirationDate
+    verificationStatus
+    fpaStatus
+    fpaApplicationDate
+    fpaApprovalDate
+    fpaVerifiedOnPortal
+    rxAuthorityStatus
+    supervisedHoursInState
+    supervisedYearsInState
+    notes
+    state {
+      id
+      stateCode
+      stateName
+      fpaAvailable
+      fpaAutomaticWithLicense
+      fpaRequiresApplication
+      fpaHoursRequired
+      fpaYearsRequired
+      fpaWithinStateRequired
+      cpaRequired
+      physicianNpRatio
+      boardFilingRequired
+      boardPortalUrl
+      licenseVerificationUrl
+      complianceNotes
+    }
+  }
+}
+
+# Get my conversations (where I'm either NP or Physician)
+query GetMyConversations @auth(level: USER, insecureReason: "Participant views conversations") {
+  conversations(where: {
+    _or: [
+      { npUser: { id: { eq_expr: "auth.uid" } } }
+      { physicianUser: { id: { eq_expr: "auth.uid" } } }
+    ]
+  }, orderBy: { lastMessageAt: DESC }) {
+    id
+    conversationId
+    status
+    contactInfoUnlocked
+    lastMessageAt
+    unreadCountNp
+    unreadCountPhysician
+    createdAt
+    npUser {
+      id
+      displayName
+      email
+    }
+    physicianUser {
+      id
+      displayName
+      email
+    }
+    collaborationAgreement {
+      id
+      status
+      isActive
+    }
+  }
+}
+
+# Get messages in a conversation
+query GetConversationMessages($conversationId: UUID!) @auth(level: USER, insecureReason: "Participant views messages") {
+  messages(
+    where: { conversation: { id: { eq: $conversationId } } }
+    orderBy: { createdAt: ASC }
+  ) {
+    id
+    messageType
+    messageBody
+    containsBlockedContent
+    blockedContentType
+    readAt
+    deliveredAt
+    createdAt
+    sender {
+      id
+      displayName
+      email
+    }
+    conversation {
+      id
+      contactInfoUnlocked
+    }
+  }
+}
+
+# Get conversation by ID
+query GetConversationById($conversationId: UUID!) @auth(level: USER, insecureReason: "Participant views conversation") {
+  conversation(id: $conversationId) {
+    id
+    conversationId
+    status
+    contactInfoUnlocked
+    lastMessageAt
+    unreadCountNp
+    unreadCountPhysician
+    createdAt
+    npUser {
+      id
+      displayName
+      email
+    }
+    physicianUser {
+      id
+      displayName
+      email
+    }
+    collaborationAgreement {
+      id
+      status
+      isActive
+    }
+  }
+}
+
+# Check if contact info is unlocked for a conversation
+query CheckContactInfoUnlocked($conversationId: UUID!) @auth(level: USER, insecureReason: "Participant checks status") {
+  conversation(id: $conversationId) {
+    id
+    contactInfoUnlocked
+    collaborationAgreement {
+      id
+      status
+      isActive
+    }
+  }
+}
+
+# Search for physicians by state and specialty
+query SearchPhysicians($stateCode: String, $specialtyType: String, $availableForNewNPs: Boolean) @auth(level: PUBLIC, insecureReason: "Provider directory is public for matching") {
+  providerDirectories(
+    where: {
+      _and: [
+        { isActive: { eq: true } }
+        { profileVisibility: { eq: "public" } }
+        { availableStates: { contains: $stateCode } }
+        { primarySpecialty: { eq: $specialtyType } }
+        { availableSpots: { gt: 0 } }
+      ]
+    }
+  ) {
+    physician {
+      id
+      displayName
+      email
+    }
+    isActive
+    availableStates
+    primarySpecialty
+    secondarySpecialties
+    totalNpCapacity
+    currentNpCount
+    availableSpots
+    supervisionModel
+    hourlyRate
+    revenueSharePercentage
+    yearsSupervising
+    responseTime
+    badges
+    isPremiumPhysician
+  }
+}
+
+# Search for NPs by state and specialty
+query SearchNPs($stateCode: String, $specialtyType: String, $needsCPA: Boolean) @auth(level: PUBLIC, insecureReason: "Provider directory is public for matching") {
+  npDirectories(
+    where: {
+      _and: [
+        { isActive: { eq: true } }
+        { profileVisibility: { eq: "public" } }
+        { seekingStates: { contains: $stateCode } }
+        { primarySpecialty: { eq: $specialtyType } }
+        { cpaNeededStates: { contains: $stateCode } }
+      ]
+    }
+  ) {
+    np {
+      id
+      displayName
+      email
+    }
+    isActive
+    seekingStates
+    licensedStates
+    fpaStates
+    cpaNeededStates
+    primarySpecialty
+    secondarySpecialties
+    hoursPerWeekAvailable
+    startDateAvailability
+    yearsExperience
+    preferredCompensationModel
+    budgetRange
+  }
+}
+
+# Get any provider's directory profile
+query GetProviderDirectoryProfile($userId: String!) @auth(level: PUBLIC, insecureReason: "Public directory profiles") {
+  providerDirectory(key: { physicianId: $userId }) {
+    physician {
+      id
+      displayName
+      email
+    }
+    isActive
+    profileVisibility
+    availableStates
+    preferredStates
+    totalNpCapacity
+    currentNpCount
+    availableSpots
+    primarySpecialty
+    secondarySpecialties
+    supervisionModel
+    hourlyRate
+    revenueSharePercentage
+    minimumHoursRequired
+    maximumHoursOffered
+    responseTime
+    preferredContactMethod
+    yearsSupervising
+    totalNpSupervised
+    badges
+    isPremiumPhysician
+  }
+  npDirectory(key: { npId: $userId }) {
+    np {
+      id
+      displayName
+      email
+    }
+    isActive
+    profileVisibility
+    seekingStates
+    licensedStates
+    fpaStates
+    cpaNeededStates
+    hoursPerWeekAvailable
+    startDateAvailability
+    primarySpecialty
+    secondarySpecialties
+    yearsExperience
+    preferredCompensationModel
+    budgetRange
+  }
+}
+
+# Get my own directory profile
+query GetMyDirectoryProfile @auth(level: USER, insecureReason: "Owner views profile") {
+  providerDirectory(key: { physicianId_expr: "auth.uid" }) {
+    physician {
+      id
+      displayName
+      email
+      role
+    }
+    isActive
+    profileVisibility
+    availableStates
+    preferredStates
+    notAcceptingStates
+    totalNpCapacity
+    currentNpCount
+    availableSpots
+    primarySpecialty
+    secondarySpecialties
+    supervisionModel
+    hourlyRate
+    revenueSharePercentage
+    minimumHoursRequired
+    maximumHoursOffered
+    responseTime
+    preferredContactMethod
+    yearsSupervising
+    totalNpSupervised
+    currentNpTestimonials
+    isVerified
+    isPremiumPhysician
+    badges
+    lastActiveAt
+    createdAt
+  }
+  npDirectory(key: { npId_expr: "auth.uid" }) {
+    np {
+      id
+      displayName
+      email
+      role
+    }
+    isActive
+    profileVisibility
+    seekingStates
+    licensedStates
+    fpaStates
+    cpaNeededStates
+    hoursPerWeekAvailable
+    startDateAvailability
+    primarySpecialty
+    secondarySpecialties
+    yearsExperience
+    totalPatientsSeen
+    preferredCompensationModel
+    budgetRange
+    lastActiveAt
+    createdAt
+  }
+}
+
+# Get directory match requests
+query GetDirectoryMatches($userId: String!) @auth(level: USER, insecureReason: "Users can view their own matches") {
+  directoryMatches(
+    where: {
+      _or: [
+        { np: { id: { eq: $userId } } }
+        { physician: { id: { eq: $userId } } }
+      ]
+    }
+  ) {
+    id
+    np {
+      id
+      displayName
+      email
+    }
+    physician {
+      id
+      displayName
+      email
+    }
+    state {
+      stateCode
+      stateName
+    }
+    status
+    initiatedBy
+    firstContactAt
+    lastContactAt
+    messageCount
+    agreedToCollaborate
+    agreedAt
+    declinedBy
+    declinedAt
+    declineReason
+    createdAt
+  }
+}
+
+# Get my collaboration agreements (where I'm either NP or Physician)
+query GetMyAgreements @auth(level: USER, insecureReason: "Participant views agreements") {
+  collaborationAgreements(
+    where: {
+      _or: [
+        { npLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+        { physicianLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+      ]
+    }
+    orderBy: { createdAt: DESC }
+  ) {
+    id
+    status
+    isActive
+    createdAt
+    updatedAt
+    boardFilingDate
+    boardApprovalDate
+    terminationDate
+    terminationReason
+    docusignUrl
+    npLicense {
+      id
+      licenseNumber
+      licenseType
+      user {
+        id
+        displayName
+        email
+      }
+    }
+    physicianLicense {
+      id
+      licenseNumber
+      licenseType
+      user {
+        id
+        displayName
+        email
+      }
+    }
+    state {
+      id
+      stateCode
+      stateName
+      cpaRequired
+      physicianNpRatio
+      chartReviewFrequency
+      chartReviewPercentage
+      qaMeetingFrequency
+      cpaRenewalFrequency
+      boardFilingRequired
+      complianceNotes
+    }
+  }
+}
+
+# Get specific collaboration agreement by ID
+query GetAgreementById($agreementId: UUID!) @auth(level: USER, insecureReason: "Participant views agreement") {
+  collaborationAgreement(id: $agreementId) {
+    id
+    status
+    isActive
+    docusignUrl
+    boardFilingDate
+    boardApprovalDate
+    terminationDate
+    terminationReason
+    createdAt
+    updatedAt
+    isBoardReported
+    boardReportingStatus
+    boardReportingInstructions
+    terminationResponsibility
+    npLicense {
+      id
+      licenseNumber
+      licenseType
+      issueDate
+      expirationDate
+      verificationStatus
+      user {
+        id
+        displayName
+        email
+        role
+      }
+    }
+    physicianLicense {
+      id
+      licenseNumber
+      licenseType
+      issueDate
+      expirationDate
+      verificationStatus
+      user {
+        id
+        displayName
+        email
+        role
+      }
+    }
+    state {
+      id
+      stateCode
+      stateName
+      cpaRequired
+      physicianNpRatio
+      ratioIsFte
+      chartReviewFrequency
+      chartReviewPercentage
+      chartReviewControlledSubstancesOnly
+      qaMeetingFrequency
+      qaMeetingDurationMonths
+      boardFilingRequired
+      boardFilingWho
+      boardFilingFee
+      boardPortalUrl
+      cpaRenewalFrequency
+      cpaAutoRenews
+      complianceNotes
+    }
+  }
+}
+
+# Get signatures for a collaboration agreement (via media documents)
+query GetAgreementSignatures($npUserId: String!, $physicianUserId: String!) @auth(level: USER, insecureReason: "Participants view signatures") {
+  documentSignatures(
+    where: {
+      _or: [
+        { signer: { id: { eq: $npUserId } } }
+        { signer: { id: { eq: $physicianUserId } } }
+      ]
+    }
+  ) {
+    signer {
+      id
+      displayName
+      email
+      role
+    }
+    signedAt
+    signatureMethod
+    ipAddress
+    createdAt
+  }
+}
+
+# Check if both parties have signed an agreement
+query CheckBothPartiesSigned($agreementId: UUID!) @auth(level: USER, insecureReason: "Participants check status") {
+  collaborationAgreement(id: $agreementId) {
+    id
+    status
+    isActive
+    npLicense {
+      user {
+        id
+        displayName
+      }
+    }
+    physicianLicense {
+      user {
+        id
+        displayName
+      }
+    }
+  }
+}
+
+# Get chart reviews for a specific CPA
+query GetChartReviews($agreementId: UUID!) @auth(level: USER, insecureReason: "Participants view reviews") {
+  chartReviews(
+    where: { collaborationAgreement: { id: { eq: $agreementId } } }
+    orderBy: { reviewDate: DESC }
+  ) {
+    id
+    reviewDate
+    isTimely
+    notes
+    chartIdentifier
+    reviewPercentage
+    isControlledSubstanceChart
+    createdAt
+    updatedAt
+    reviewer {
+      id
+      displayName
+      email
+      role
+    }
+    collaborationAgreement {
+      id
+      status
+      state {
+        stateCode
+        stateName
+        chartReviewFrequency
+        chartReviewPercentage
+        chartReviewControlledSubstancesOnly
+      }
+    }
+  }
+}
+
+# Get QA meetings for a specific CPA
+query GetQAMeetings($agreementId: UUID!) @auth(level: USER, insecureReason: "Participants view meetings") {
+  qualityAssuranceMeetings(
+    where: { collaborationAgreement: { id: { eq: $agreementId } } }
+    orderBy: { meetingDate: DESC }
+  ) {
+    id
+    meetingDate
+    notes
+    meetingDocumentUrl
+    meetingType
+    createdAt
+    updatedAt
+    host {
+      id
+      displayName
+      email
+      role
+    }
+    collaborationAgreement {
+      id
+      status
+      state {
+        stateCode
+        stateName
+        qaMeetingFrequency
+        qaMeetingDurationMonths
+      }
+    }
+  }
+}
+
+# Get overall compliance status for a CPA
+query GetComplianceStatus($agreementId: UUID!) @auth(level: USER, insecureReason: "Participants view compliance") {
+  collaborationAgreement(id: $agreementId) {
+    id
+    status
+    isActive
+    createdAt
+    boardApprovalDate
+    npLicense {
+      id
+      user {
+        id
+        displayName
+        email
+        role
+      }
+    }
+    physicianLicense {
+      id
+      user {
+        id
+        displayName
+        email
+        role
+      }
+    }
+    state {
+      id
+      stateCode
+      stateName
+      chartReviewFrequency
+      chartReviewPercentage
+      chartReviewControlledSubstancesOnly
+      qaMeetingFrequency
+      qaMeetingDurationMonths
+      cpaRenewalFrequency
+      cpaAutoRenews
+      complianceNotes
+    }
+  }
+  chartReviews(
+    where: { collaborationAgreement: { id: { eq: $agreementId } } }
+    orderBy: { reviewDate: DESC }
+  ) {
+    id
+    reviewDate
+    isTimely
+    reviewPercentage
+    createdAt
+  }
+  qualityAssuranceMeetings(
+    where: { collaborationAgreement: { id: { eq: $agreementId } } }
+    orderBy: { meetingDate: DESC }
+  ) {
+    id
+    meetingDate
+    createdAt
+  }
+}
+
+# Get upcoming QA meetings that need scheduling
+query GetUpcomingQAMeetings @auth(level: USER, insecureReason: "Participant views meetings") {
+  collaborationAgreements(
+    where: {
+      _and: [
+        { isActive: { eq: true } }
+        {
+          _or: [
+            { npLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+            { physicianLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+          ]
+        }
+      ]
+    }
+  ) {
+    id
+    status
+    isActive
+    createdAt
+    boardApprovalDate
+    npLicense {
+      user {
+        id
+        displayName
+        email
+      }
+    }
+    physicianLicense {
+      user {
+        id
+        displayName
+        email
+      }
+    }
+    state {
+      stateCode
+      stateName
+      qaMeetingFrequency
+      qaMeetingDurationMonths
+      complianceNotes
+    }
+  }
+  qualityAssuranceMeetings(
+    where: {
+      _and: [
+        { collaborationAgreement: { isActive: { eq: true } } }
+        {
+          collaborationAgreement: {
+            _or: [
+              { npLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+              { physicianLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+            ]
+          }
+        }
+      ]
+    }
+    orderBy: { meetingDate: DESC }
+  ) {
+    id
+    meetingDate
+    meetingType
+    createdAt
+    collaborationAgreement {
+      id
+    }
+  }
+}
+# Get count of active CPAs for a physician in a state
+query GetActiveCPACount($physicianId: String!, $stateCode: String!) @auth(level: USER, insecureReason: "System/Owner checks capacity") {
+  collaborationAgreements(
+    where: {
+      _and: [
+        { physicianLicense: { user: { id: { eq: $physicianId } } } }
+        { state: { stateCode: { eq: $stateCode } } }
+        { isActive: { eq: true } }
+        { status: { eq: "active" } }
+      ]
+    }
+  ) {
+    id
+  }
+}
+
+# Get state's ratio limit and other capacity info
+query GetStateRatio($stateCode: String!) @auth(level: PUBLIC, insecureReason: "Public state ratio info") {
+  states(where: { stateCode: { eq: $stateCode } }, limit: 1) {
+    physicianNpRatio
+    hasRatioLimit
+    ratioNote
+  }
+}

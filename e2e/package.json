@@ -1,0 +1,17 @@
+{
+  "name": "finn-e2e-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "firebase-admin": "^12.0.0",
+    "typescript": "^5.0.0"
+  }
+}
