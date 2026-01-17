@@ -140,7 +140,7 @@ exports.createNpDirectory = function createNpDirectory(dcOrVars, vars) {
 };
 
 const updatePhysicianDirectoryProfileRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
   dcInstance._useGeneratedSdk();
   return mutationRef(dcInstance, 'UpdatePhysicianDirectoryProfile', inputVars);
 }
@@ -152,7 +152,7 @@ exports.updatePhysicianDirectoryProfile = function updatePhysicianDirectoryProfi
 };
 
 const updateNpDirectoryProfileRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
   dcInstance._useGeneratedSdk();
   return mutationRef(dcInstance, 'UpdateNPDirectoryProfile', inputVars);
 }
@@ -173,6 +173,18 @@ exports.createDirectoryMatchRef = createDirectoryMatchRef;
 
 exports.createDirectoryMatch = function createDirectoryMatch(dcOrVars, vars) {
   return executeMutation(createDirectoryMatchRef(dcOrVars, vars));
+};
+
+const createDirectoryMatchByPhysicianRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'CreateDirectoryMatchByPhysician', inputVars);
+}
+createDirectoryMatchByPhysicianRef.operationName = 'CreateDirectoryMatchByPhysician';
+exports.createDirectoryMatchByPhysicianRef = createDirectoryMatchByPhysicianRef;
+
+exports.createDirectoryMatchByPhysician = function createDirectoryMatchByPhysician(dcOrVars, vars) {
+  return executeMutation(createDirectoryMatchByPhysicianRef(dcOrVars, vars));
 };
 
 const updateMatchStatusRef = (dcOrVars, vars) => {
@@ -293,6 +305,42 @@ exports.updateChartReviewDocumentRef = updateChartReviewDocumentRef;
 
 exports.updateChartReviewDocument = function updateChartReviewDocument(dcOrVars, vars) {
   return executeMutation(updateChartReviewDocumentRef(dcOrVars, vars));
+};
+
+const createMediaRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'CreateMedia', inputVars);
+}
+createMediaRef.operationName = 'CreateMedia';
+exports.createMediaRef = createMediaRef;
+
+exports.createMedia = function createMedia(dcOrVars, vars) {
+  return executeMutation(createMediaRef(dcOrVars, vars));
+};
+
+const upsertStateCapacityRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'UpsertStateCapacity', inputVars);
+}
+upsertStateCapacityRef.operationName = 'UpsertStateCapacity';
+exports.upsertStateCapacityRef = upsertStateCapacityRef;
+
+exports.upsertStateCapacity = function upsertStateCapacity(dcOrVars, vars) {
+  return executeMutation(upsertStateCapacityRef(dcOrVars, vars));
+};
+
+const deleteStateCapacityRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteStateCapacity', inputVars);
+}
+deleteStateCapacityRef.operationName = 'DeleteStateCapacity';
+exports.deleteStateCapacityRef = deleteStateCapacityRef;
+
+exports.deleteStateCapacity = function deleteStateCapacity(dcOrVars, vars) {
+  return executeMutation(deleteStateCapacityRef(dcOrVars, vars));
 };
 
 const listStatesRef = (dc) => {
@@ -593,6 +641,42 @@ exports.getStateRatioRef = getStateRatioRef;
 
 exports.getStateRatio = function getStateRatio(dcOrVars, vars) {
   return executeQuery(getStateRatioRef(dcOrVars, vars));
+};
+
+const getMyStateCapacitiesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetMyStateCapacities');
+}
+getMyStateCapacitiesRef.operationName = 'GetMyStateCapacities';
+exports.getMyStateCapacitiesRef = getMyStateCapacitiesRef;
+
+exports.getMyStateCapacities = function getMyStateCapacities(dc) {
+  return executeQuery(getMyStateCapacitiesRef(dc));
+};
+
+const getPhysicianStateCapacitiesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetPhysicianStateCapacities', inputVars);
+}
+getPhysicianStateCapacitiesRef.operationName = 'GetPhysicianStateCapacities';
+exports.getPhysicianStateCapacitiesRef = getPhysicianStateCapacitiesRef;
+
+exports.getPhysicianStateCapacities = function getPhysicianStateCapacities(dcOrVars, vars) {
+  return executeQuery(getPhysicianStateCapacitiesRef(dcOrVars, vars));
+};
+
+const searchPhysiciansWithStateCapacityRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'SearchPhysiciansWithStateCapacity', inputVars);
+}
+searchPhysiciansWithStateCapacityRef.operationName = 'SearchPhysiciansWithStateCapacity';
+exports.searchPhysiciansWithStateCapacityRef = searchPhysiciansWithStateCapacityRef;
+
+exports.searchPhysiciansWithStateCapacity = function searchPhysiciansWithStateCapacity(dcOrVars, vars) {
+  return executeQuery(searchPhysiciansWithStateCapacityRef(dcOrVars, vars));
 };
 
 const seedStatesRef = (dc) => {

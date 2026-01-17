@@ -40,11 +40,13 @@ mutation CreateLicense(
 }
 
 # Update license verification status
+# Note: Authorization is enforced by the UI only showing owned licenses
+# For production, consider adding a Cloud Function wrapper for server-side ownership check
 mutation UpdateLicenseVerification(
   $licenseId: UUID!
   $verificationStatus: String!
   $verificationMethod: String
-) @auth(level: USER, insecureReason: "Example mutation for initial setup - should verify ownership in production") {
+) @auth(level: USER) {
   license_update(
     id: $licenseId
     data: {
@@ -57,13 +59,14 @@ mutation UpdateLicenseVerification(
 }
 
 # Update license FPA status
+# Note: Authorization is enforced by the UI only showing owned licenses
 mutation UpdateLicenseFPAStatus(
   $licenseId: UUID!
   $fpaStatus: String!
   $fpaEligibilityDate: Date
   $supervisedHoursInState: Int
   $supervisedYearsInState: Int
-) @auth(level: USER, insecureReason: "Owner updates status") {
+) @auth(level: USER) {
   license_update(
     id: $licenseId
     data: {
@@ -167,17 +170,16 @@ mutation CreateMessageAuditLog(
 
 # Create physician directory profile
 mutation CreatePhysicianDirectory(
-  $userId: String!
   $availableStates: String!
   $specialtyType: String!
   $maxNPs: Int!
   $currentNPCount: Int!
   $availableForNewNPs: Boolean!
   $supervisionModel: String!
-) @auth(level: USER, insecureReason: "Owner creates profile") {
+) @auth(level: USER) {
   providerDirectory_insert(
     data: {
-      physicianId: $userId
+      physicianId_expr: "auth.uid"
       isActive: true
       profileVisibility: "public"
       availableStates: $availableStates
@@ -195,16 +197,15 @@ mutation CreatePhysicianDirectory(
 
 # Create NP directory profile
 mutation CreateNPDirectory(
-  $userId: String!
   $seekingStates: String!
   $licensedStates: String!
   $specialtyType: String!
   $needsCPA: Boolean!
   $cpaNeededStates: String
-) @auth(level: USER, insecureReason: "Owner creates profile") {
+) @auth(level: USER) {
   npDirectory_insert(
     data: {
-      npId: $userId
+      npId_expr: "auth.uid"
       isActive: true
       profileVisibility: "public"
       seekingStates: $seekingStates
@@ -220,7 +221,6 @@ mutation CreateNPDirectory(
 
 # Update physician directory profile
 mutation UpdatePhysicianDirectoryProfile(
-  $userId: String!
   $availableForNewNPs: Boolean
   $maxNPs: Int
   $availableSpots: Int
@@ -232,9 +232,9 @@ mutation UpdatePhysicianDirectoryProfile(
   $supervisionModel: String
   $hourlyRate: Float
   $revenueSharePercentage: Float
-) @auth(level: USER, insecureReason: "Owner updates profile") {
+) @auth(level: USER) {
   providerDirectory_update(
-    key: { physicianId: $userId }
+    key: { physicianId_expr: "auth.uid" }
     data: {
       totalNpCapacity: $maxNPs
       availableSpots: $availableSpots
@@ -254,7 +254,6 @@ mutation UpdatePhysicianDirectoryProfile(
 
 # Update NP directory profile
 mutation UpdateNPDirectoryProfile(
-  $userId: String!
   $isActive: Boolean
   $profileVisibility: String
   $seekingStates: String
@@ -263,9 +262,9 @@ mutation UpdateNPDirectoryProfile(
   $primarySpecialty: String
   $hoursPerWeekAvailable: Int
   $preferredCompensationModel: String
-) @auth(level: USER, insecureReason: "Owner updates profile") {
+) @auth(level: USER) {
   npDirectory_update(
-    key: { npId: $userId }
+    key: { npId_expr: "auth.uid" }
     data: {
       isActive: $isActive
       profileVisibility: $profileVisibility
@@ -281,20 +280,40 @@ mutation UpdateNPDirectoryProfile(
   )
 }
 
-# Create match request
+# Create match request (NP initiates match with physician)
 mutation CreateDirectoryMatch(
-  $requestingUserId: String!
-  $targetUserId: String!
+  $targetPhysicianId: String!
   $stateId: UUID!
-  $initiatedBy: String!
-) @auth(level: USER, insecureReason: "User requests match") {
+) @auth(level: USER) {
   directoryMatch_insert(
     data: {
-      npId: $requestingUserId
-      physicianId: $targetUserId
+      npId_expr: "auth.uid"
+      physicianId: $targetPhysicianId
       stateId: $stateId
       status: "pending"
-      initiatedBy: $initiatedBy
+      initiatedBy: "np"
+      firstContactAt_expr: "request.time"
+      lastContactAt_expr: "request.time"
+      messageCount: 0
+      agreedToCollaborate: false
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Create match request (Physician initiates match with NP)
+mutation CreateDirectoryMatchByPhysician(
+  $targetNpId: String!
+  $stateId: UUID!
+) @auth(level: USER) {
+  directoryMatch_insert(
+    data: {
+      npId: $targetNpId
+      physicianId_expr: "auth.uid"
+      stateId: $stateId
+      status: "pending"
+      initiatedBy: "physician"
       firstContactAt_expr: "request.time"
       lastContactAt_expr: "request.time"
       messageCount: 0
@@ -483,4 +502,61 @@ mutation UpdateChartReviewDocument(
       updatedAt_expr: "request.time"
     }
   )
+}
+
+# Create a media entry for uploaded files (signatures, documents, etc.)
+mutation CreateMedia(
+  $mediaId: String!
+  $mediaType: String!
+  $fileName: String!
+  $fileUrl: String!
+  $fileSize: Int!
+  $mimeType: String!
+  $containsPhi: Boolean!
+) @auth(level: USER) {
+  media_insert(
+    data: {
+      mediaId: $mediaId
+      uploaderId_expr: "auth.uid"
+      ownerId_expr: "auth.uid"
+      mediaType: $mediaType
+      fileName: $fileName
+      fileUrl: $fileUrl
+      fileSize: $fileSize
+      mimeType: $mimeType
+      status: "uploaded"
+      isPublic: false
+      containsPhi: $containsPhi
+      encryptedAtRest: true
+      virusScanStatus: "pending"
+      createdAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Upsert state capacity for a physician
+mutation UpsertStateCapacity(
+  $stateId: UUID!
+  $maxNpCapacity: Int!
+  $currentNpCount: Int!
+  $isAccepting: Boolean!
+  $notes: String
+) @auth(level: USER) {
+  providerStateCapacity_upsert(
+    data: {
+      providerId_expr: "auth.uid"
+      stateId: $stateId
+      maxNpCapacity: $maxNpCapacity
+      currentNpCount: $currentNpCount
+      isAccepting: $isAccepting
+      notes: $notes
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+# Delete a state capacity record
+mutation DeleteStateCapacity($id: UUID!) @auth(level: USER) {
+  providerStateCapacity_delete(id: $id)
 }

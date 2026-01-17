@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, X, FileSignature } from "lucide-react";
+import { ArrowLeft, Check, X, FileSignature, Loader2 } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
-import { auth, getDc } from "@/lib/firebase";
-import { getAgreementById, signAgreement } from "@dataconnect/generated";
+import { auth, getDc, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getAgreementById, signAgreement, createMedia } from "@dataconnect/generated";
 import { toast } from "sonner";
 
 interface Agreement {
@@ -43,6 +44,7 @@ export default function SignAgreementPage() {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [signatureEmpty, setSignatureEmpty] = useState(true);
@@ -94,6 +96,19 @@ export default function SignAgreementPage() {
     }
   };
 
+  // Convert data URL to Blob for upload
+  const dataURLtoBlob = (dataURL: string): Blob => {
+    const arr = dataURL.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
   const handleSubmit = async () => {
     if (!signatureRef.current || signatureRef.current.isEmpty()) {
       toast.error("Please provide your signature before submitting.");
@@ -105,24 +120,64 @@ export default function SignAgreementPage() {
       return;
     }
 
+    if (!currentUserId) {
+      toast.error("You must be logged in to sign.");
+      return;
+    }
+
     setSigning(true);
+    setUploadProgress("Capturing signature...");
+
     try {
-      // Get signature as base64 data URL
-      // const signatureDataUrl = signatureRef.current.toDataURL();
-      // Note: In production, upload signatureDataUrl to Firebase Storage
+      // Step 1: Get signature as data URL and convert to blob
+      const signatureDataUrl = signatureRef.current.toDataURL("image/png");
+      const signatureBlob = dataURLtoBlob(signatureDataUrl);
 
-      // Create a media entry for the signature
-      // For now, we'll use a temporary mediaId - in production, you'd upload to storage first
-      const tempMediaId = crypto.randomUUID();
+      // Step 2: Generate unique media ID and filename
+      const mediaId = crypto.randomUUID();
+      const fileName = `signature_${agreementId}_${Date.now()}.png`;
 
-      // Get client information
+      // Step 3: Upload to Firebase Storage
+      setUploadProgress("Uploading signature...");
+      const storageRef = ref(storage, `signatures/${currentUserId}/${fileName}`);
+      await uploadBytes(storageRef, signatureBlob, {
+        contentType: "image/png",
+        customMetadata: {
+          agreementId,
+          signerId: currentUserId,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // Step 4: Get download URL
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      // Step 5: Create Media record in Data Connect
+      setUploadProgress("Recording signature...");
+      try {
+        await createMedia(getDc(), {
+          mediaId,
+          mediaType: "signature",
+          fileName,
+          fileUrl: downloadUrl,
+          fileSize: signatureBlob.size,
+          mimeType: "image/png",
+          containsPhi: false,
+        });
+      } catch (mediaError) {
+        console.warn("Failed to create media record:", mediaError);
+        // Continue even if media creation fails - signature is still uploaded
+      }
+
+      // Step 6: Get client information
       const ipAddress = await getClientIp();
       const userAgent = navigator.userAgent;
 
-      // Sign the agreement
+      // Step 7: Sign the agreement
+      setUploadProgress("Finalizing signature...");
       await signAgreement(getDc(), {
         agreementId,
-        mediaId: tempMediaId,
+        mediaId,
         signatureMethod: "electronic_canvas",
         ipAddress: ipAddress || "unknown",
         userAgent,
@@ -130,10 +185,12 @@ export default function SignAgreementPage() {
 
       toast.success("Agreement signed successfully!");
       router.push(`/dashboard/agreements/${agreementId}`);
-    } catch {
+    } catch (error) {
+      console.error("Signature error:", error);
       toast.error("Failed to sign agreement. Please try again.");
     } finally {
       setSigning(false);
+      setUploadProgress("");
     }
   };
 
@@ -152,11 +209,6 @@ export default function SignAgreementPage() {
       </div>
     );
   }
-
-  // const otherParty =
-  //   agreement.npLicense.user.id === currentUserId
-  //     ? agreement.physicianLicense.user
-  //     : agreement.npLicense.user;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -296,8 +348,17 @@ export default function SignAgreementPage() {
           disabled={signing || signatureEmpty || !acknowledged}
           className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Check className="h-4 w-4" />
-          {signing ? "Submitting..." : "Sign & Submit"}
+          {signing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {uploadProgress || "Processing..."}
+            </>
+          ) : (
+            <>
+              <Check className="h-4 w-4" />
+              Sign & Submit
+            </>
+          )}
         </button>
       </div>
     </div>

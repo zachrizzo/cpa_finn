@@ -67,6 +67,10 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+dataconnect/example/seed-generated.gql
 
 # Compiled functions output
 functions/lib/
+
+# Emulator backups
+emulator-backup/

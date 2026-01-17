@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, BadgeCheck, BookUser, LogOut, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, FileText, BadgeCheck, BookUser, LogOut, ClipboardCheck, MessageCircle, User } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function Sidebar() {
@@ -15,7 +15,9 @@ export default function Sidebar() {
         // Placeholder for future phases
         { href: "/dashboard/directory", label: "Directory", icon: BookUser },
         { href: "/dashboard/agreements", label: "Agreements", icon: FileText },
+        { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
         { href: "/dashboard/compliance", label: "Compliance", icon: ClipboardCheck },
+        { href: "/dashboard/profile", label: "My Profile", icon: User },
     ];
 
     return (

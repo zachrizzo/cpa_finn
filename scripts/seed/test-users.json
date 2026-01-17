@@ -1,0 +1,158 @@
+{
+  "users": [
+    {
+      "key": "np1",
+      "email": "np1@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Sarah Johnson NP",
+      "role": "np"
+    },
+    {
+      "key": "np2",
+      "email": "np2@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Maria Garcia NP",
+      "role": "np"
+    },
+    {
+      "key": "np3",
+      "email": "np3@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Jennifer Williams NP",
+      "role": "np"
+    },
+    {
+      "key": "np4",
+      "email": "np4@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Ashley Brown NP",
+      "role": "np"
+    },
+    {
+      "key": "np5",
+      "email": "np5@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Jessica Davis NP",
+      "role": "np"
+    },
+    {
+      "key": "np6",
+      "email": "np6@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Amanda Miller NP",
+      "role": "np"
+    },
+    {
+      "key": "np7",
+      "email": "np7@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Stephanie Wilson NP",
+      "role": "np"
+    },
+    {
+      "key": "np8",
+      "email": "np8@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Nicole Martinez NP",
+      "role": "np"
+    },
+    {
+      "key": "np9",
+      "email": "np9@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Elizabeth Anderson NP",
+      "role": "np"
+    },
+    {
+      "key": "np10",
+      "email": "np10@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Rachel Taylor NP",
+      "role": "np"
+    },
+    {
+      "key": "physician1",
+      "email": "physician1@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Michael Smith",
+      "role": "physician"
+    },
+    {
+      "key": "physician2",
+      "email": "physician2@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Emily Chen",
+      "role": "physician"
+    },
+    {
+      "key": "physician3",
+      "email": "physician3@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. James Thompson",
+      "role": "physician"
+    },
+    {
+      "key": "physician4",
+      "email": "physician4@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. David Lee",
+      "role": "physician"
+    },
+    {
+      "key": "physician5",
+      "email": "physician5@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Robert Johnson",
+      "role": "physician"
+    },
+    {
+      "key": "physician6",
+      "email": "physician6@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. William Davis",
+      "role": "physician"
+    },
+    {
+      "key": "physician7",
+      "email": "physician7@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Richard Brown",
+      "role": "physician"
+    },
+    {
+      "key": "physician8",
+      "email": "physician8@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Joseph Wilson",
+      "role": "physician"
+    },
+    {
+      "key": "physician9",
+      "email": "physician9@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Charles Martinez",
+      "role": "physician"
+    },
+    {
+      "key": "physician10",
+      "email": "physician10@test.finn.dev",
+      "password": "testpass123",
+      "displayName": "Dr. Thomas Anderson",
+      "role": "physician"
+    }
+  ],
+  "profiles": {
+    "minimal": [],
+    "basic": ["np1", "np2", "physician1", "physician2"],
+    "full": [
+      "np1", "np2", "np3", "np4", "np5", "np6", "np7", "np8", "np9", "np10",
+      "physician1", "physician2", "physician3", "physician4", "physician5",
+      "physician6", "physician7", "physician8", "physician9", "physician10"
+    ],
+    "massive": {
+      "_comment": "Massive profile generates users programmatically. np1, np2, physician1, physician2 always included for login testing.",
+      "npCount": 50,
+      "physicianCount": 50
+    }
+  }
+}

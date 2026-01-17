@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send, Lock, CheckCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Send, Lock, CheckCircle, AlertTriangle, Shield } from "lucide-react";
 import { auth, getDc } from "@/lib/firebase";
 import {
   getConversationById,
@@ -11,19 +11,20 @@ import {
   markMessageAsRead,
 } from "@dataconnect/generated";
 import { toast } from "sonner";
+import { preFilterMessage } from "@/lib/message-filter";
 
 interface Message {
   id: string;
   messageType: string;
-  messageBody: string;
-  containsBlockedContent: boolean | null;
-  blockedContentType: string | null;
-  readAt: string | null;
-  deliveredAt: string | null;
+  messageBody?: string | null;
+  containsBlockedContent?: boolean | null;
+  blockedContentType?: string | null;
+  readAt?: string | null;
+  deliveredAt?: string | null;
   createdAt: string;
   sender: {
     id: string;
-    displayName: string | null;
+    displayName?: string | null;
     email: string;
   };
   conversation: {
@@ -37,21 +38,21 @@ interface Conversation {
   conversationId: string;
   status: string;
   contactInfoUnlocked: boolean;
-  lastMessageAt: string | null;
-  unreadCountNp: number;
-  unreadCountPhysician: number;
+  lastMessageAt?: string | null;
+  unreadCountNp?: number | null;
+  unreadCountPhysician?: number | null;
   createdAt: string;
   npUser: {
     id: string;
-    displayName: string | null;
+    displayName?: string | null;
     email: string;
   };
   physicianUser: {
     id: string;
-    displayName: string | null;
+    displayName?: string | null;
     email: string;
   };
-  collaborationAgreement: {
+  collaborationAgreement?: {
     id: string;
     status: string;
     isActive: boolean;
@@ -69,6 +70,7 @@ export default function ConversationPage() {
   const [sending, setSending] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [filterWarning, setFilterWarning] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +81,26 @@ export default function ConversationPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Check message for contact info as user types
+  useEffect(() => {
+    if (!conversation) return;
+
+    const isUnlocked =
+      conversation.contactInfoUnlocked ||
+      conversation.collaborationAgreement?.isActive;
+
+    if (!isUnlocked && messageInput.trim()) {
+      const result = preFilterMessage(messageInput, !!isUnlocked);
+      if (result.shouldBlock) {
+        setFilterWarning(result.message);
+      } else {
+        setFilterWarning(null);
+      }
+    } else {
+      setFilterWarning(null);
+    }
+  }, [messageInput, conversation]);
 
   useEffect(() => {
     async function fetchConversation() {
@@ -95,11 +117,20 @@ export default function ConversationPage() {
         const { data } = await getConversationMessages(getDc(), { conversationId });
         setMessages(data.messages as Message[]);
 
-        // Mark unread messages as read
-        for (const message of data.messages) {
-          if (!message.readAt && message.sender.id !== currentUserId) {
-            await markMessageAsRead(getDc(), { messageId: message.id });
-          }
+        // Mark unread messages as read using Promise.allSettled (fixes race condition)
+        const unreadMessages = data.messages.filter(
+          (msg: Message) => !msg.readAt && msg.sender.id !== currentUserId
+        );
+
+        if (unreadMessages.length > 0) {
+          const markPromises = unreadMessages.map((msg: Message) =>
+            markMessageAsRead(getDc(), { messageId: msg.id })
+          );
+
+          // Fire all mark-as-read requests in parallel, don't wait for all to complete
+          Promise.allSettled(markPromises).catch((err) =>
+            console.error("Failed to mark some messages as read:", err)
+          );
         }
       } catch {
         toast.error("Failed to load messages");
@@ -127,6 +158,20 @@ export default function ConversationPage() {
     e.preventDefault();
     if (!messageInput.trim() || sending) return;
 
+    const isUnlocked =
+      conversation?.contactInfoUnlocked ||
+      conversation?.collaborationAgreement?.isActive;
+
+    // Pre-filter check before sending
+    const preFilterResult = preFilterMessage(messageInput, !!isUnlocked);
+    if (preFilterResult.shouldBlock) {
+      toast.error(preFilterResult.message, {
+        description: "Sign your CPA with the other party to unlock contact sharing.",
+        duration: 5000,
+      });
+      return;
+    }
+
     setSending(true);
     try {
       await sendMessage(getDc(), {
@@ -134,6 +179,7 @@ export default function ConversationPage() {
         messageBody: messageInput.trim(),
       });
       setMessageInput("");
+      setFilterWarning(null);
 
       // Fetch messages immediately to show the new message
       const { data } = await getConversationMessages(getDc(), { conversationId });
@@ -211,9 +257,7 @@ export default function ConversationPage() {
               {otherParticipant?.displayName || otherParticipant?.email || "Unknown User"}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-sm text-gray-500">
-                {otherParticipant?.email}
-              </p>
+              <p className="text-sm text-gray-500">{otherParticipant?.email}</p>
               {hasCPA && (
                 <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -235,8 +279,10 @@ export default function ConversationPage() {
                 Contact Information Protected
               </p>
               <p className="text-sm text-yellow-700 mt-1">
-                Contact information (phone numbers and email addresses) will be available once your CPA is signed by both parties.
-                Any contact information shared in messages will be automatically blocked for HIPAA compliance.
+                Contact information (phone numbers and email addresses) will be
+                available once your CPA is signed by both parties. Any contact
+                information shared in messages will be automatically blocked for
+                HIPAA compliance.
               </p>
             </div>
           </div>
@@ -249,7 +295,9 @@ export default function ConversationPage() {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <p className="text-gray-500">No messages yet</p>
-              <p className="text-sm text-gray-400 mt-1">Send a message to start the conversation</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Send a message to start the conversation
+              </p>
             </div>
           </div>
         ) : (
@@ -262,7 +310,11 @@ export default function ConversationPage() {
                 key={message.id}
                 className={`flex ${isMine ? "justify-end" : "justify-start"}`}
               >
-                <div className={`max-w-md ${isMine ? "items-end" : "items-start"} flex flex-col gap-1`}>
+                <div
+                  className={`max-w-md ${
+                    isMine ? "items-end" : "items-start"
+                  } flex flex-col gap-1`}
+                >
                   {!isMine && (
                     <span className="text-xs text-gray-500 px-3">
                       {message.sender.displayName || message.sender.email}
@@ -285,17 +337,27 @@ export default function ConversationPage() {
                             Contact information blocked
                           </p>
                           <p className="text-xs text-red-700 mt-1">
-                            This message contained {message.blockedContentType || "contact information"} and has been blocked for HIPAA compliance.
+                            This message contained{" "}
+                            {message.blockedContentType || "contact information"} and
+                            has been blocked for HIPAA compliance.
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <p className={`text-sm ${isMine ? "text-white" : "text-gray-900"}`}>
+                      <p
+                        className={`text-sm ${
+                          isMine ? "text-white" : "text-gray-900"
+                        }`}
+                      >
                         {message.messageBody}
                       </p>
                     )}
                   </div>
-                  <span className={`text-xs text-gray-400 px-3 ${isMine ? "text-right" : "text-left"}`}>
+                  <span
+                    className={`text-xs text-gray-400 px-3 ${
+                      isMine ? "text-right" : "text-left"
+                    }`}
+                  >
                     {formatTimestamp(message.createdAt)}
                   </span>
                 </div>
@@ -308,6 +370,14 @@ export default function ConversationPage() {
 
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="border-t bg-white px-6 py-4">
+        {/* Filter Warning */}
+        {filterWarning && (
+          <div className="mb-3 flex items-start gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2">
+            <Shield className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-yellow-800">{filterWarning}</p>
+          </div>
+        )}
+
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <textarea
@@ -321,7 +391,9 @@ export default function ConversationPage() {
               }}
               placeholder="Type your message..."
               rows={3}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className={`w-full rounded-md border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                filterWarning ? "border-yellow-300" : "border-gray-300"
+              }`}
             />
             <p className="text-xs text-gray-500 mt-1">
               Press Enter to send, Shift+Enter for new line
@@ -329,7 +401,7 @@ export default function ConversationPage() {
           </div>
           <button
             type="submit"
-            disabled={!messageInput.trim() || sending}
+            disabled={!messageInput.trim() || sending || !!filterWarning}
             className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed h-fit"
           >
             <Send className="h-4 w-4" />

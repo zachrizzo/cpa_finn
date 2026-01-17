@@ -123,15 +123,22 @@ export interface CreateConversationVariables {
   agreementId?: UUIDString | null;
 }
 
+export interface CreateDirectoryMatchByPhysicianData {
+  directoryMatch_insert: DirectoryMatch_Key;
+}
+
+export interface CreateDirectoryMatchByPhysicianVariables {
+  targetNpId: string;
+  stateId: UUIDString;
+}
+
 export interface CreateDirectoryMatchData {
   directoryMatch_insert: DirectoryMatch_Key;
 }
 
 export interface CreateDirectoryMatchVariables {
-  requestingUserId: string;
-  targetUserId: string;
+  targetPhysicianId: string;
   stateId: UUIDString;
-  initiatedBy: string;
 }
 
 export interface CreateLicenseData {
@@ -147,6 +154,20 @@ export interface CreateLicenseVariables {
   verificationStatus: string;
   supervisedHoursInState?: number | null;
   supervisedYearsInState?: number | null;
+}
+
+export interface CreateMediaData {
+  media_insert: Media_Key;
+}
+
+export interface CreateMediaVariables {
+  mediaId: string;
+  mediaType: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  containsPhi: boolean;
 }
 
 export interface CreateMessageAuditLogData {
@@ -165,7 +186,6 @@ export interface CreateNpDirectoryData {
 }
 
 export interface CreateNpDirectoryVariables {
-  userId: string;
   seekingStates: string;
   licensedStates: string;
   specialtyType: string;
@@ -178,13 +198,20 @@ export interface CreatePhysicianDirectoryData {
 }
 
 export interface CreatePhysicianDirectoryVariables {
-  userId: string;
   availableStates: string;
   specialtyType: string;
   maxNPs: number;
   currentNPCount: number;
   availableForNewNPs: boolean;
   supervisionModel: string;
+}
+
+export interface DeleteStateCapacityData {
+  providerStateCapacity_delete?: ProviderStateCapacity_Key | null;
+}
+
+export interface DeleteStateCapacityVariables {
+  id: UUIDString;
 }
 
 export interface DirectoryMatch_Key {
@@ -679,12 +706,15 @@ export interface GetMyLicensesData {
     issueDate: DateString;
     expirationDate: DateString;
     verificationStatus: string;
+    verificationDate?: TimestampString | null;
     fpaStatus?: string | null;
     rxAuthorityStatus?: string | null;
     state: {
+      id: UUIDString;
       stateCode: string;
       stateName: string;
-    };
+      licenseVerificationUrl?: string | null;
+    } & State_Key;
   } & License_Key)[];
 }
 
@@ -696,6 +726,42 @@ export interface GetMyProfileData {
     createdAt: TimestampString;
     updatedAt?: TimestampString | null;
   };
+}
+
+export interface GetMyStateCapacitiesData {
+  providerStateCapacities: ({
+    id: UUIDString;
+    state: {
+      id: UUIDString;
+      stateCode: string;
+      stateName: string;
+    } & State_Key;
+      maxNpCapacity: number;
+      currentNpCount: number;
+      isAccepting: boolean;
+      notes?: string | null;
+      createdAt: TimestampString;
+      updatedAt?: TimestampString | null;
+  } & ProviderStateCapacity_Key)[];
+}
+
+export interface GetPhysicianStateCapacitiesData {
+  providerStateCapacities: ({
+    id: UUIDString;
+    state: {
+      id: UUIDString;
+      stateCode: string;
+      stateName: string;
+    } & State_Key;
+      maxNpCapacity: number;
+      currentNpCount: number;
+      isAccepting: boolean;
+      notes?: string | null;
+  } & ProviderStateCapacity_Key)[];
+}
+
+export interface GetPhysicianStateCapacitiesVariables {
+  physicianId: string;
 }
 
 export interface GetProviderDirectoryProfileData {
@@ -902,6 +968,12 @@ export interface ListStatesData {
     stateCode: string;
     stateName: string;
     fpaAvailable: boolean;
+    fpaAutomaticWithLicense?: boolean | null;
+    fpaRequiresApplication?: boolean | null;
+    fpaHoursRequired?: number | null;
+    fpaYearsRequired?: number | null;
+    fpaWithinStateRequired?: boolean | null;
+    fpaCmeHoursRequired?: number | null;
     paVerificationRequired: boolean;
     cpaRequired?: boolean | null;
     boardFilingRequired?: boolean | null;
@@ -958,6 +1030,11 @@ export interface NpDirectory_Key {
 export interface ProviderDirectory_Key {
   physicianId: string;
   __typename?: 'ProviderDirectory_Key';
+}
+
+export interface ProviderStateCapacity_Key {
+  id: UUIDString;
+  __typename?: 'ProviderStateCapacity_Key';
 }
 
 export interface QualityAssuranceMeeting_Key {
@@ -1029,6 +1106,36 @@ export interface SearchPhysiciansData {
 }
 
 export interface SearchPhysiciansVariables {
+  stateCode?: string | null;
+  specialtyType?: string | null;
+  availableForNewNPs?: boolean | null;
+}
+
+export interface SearchPhysiciansWithStateCapacityData {
+  providerDirectories: ({
+    physician: {
+      id: string;
+      displayName?: string | null;
+      email: string;
+    } & User_Key;
+      isActive: boolean;
+      availableStates: string;
+      primarySpecialty: string;
+      secondarySpecialties?: string | null;
+      totalNpCapacity?: number | null;
+      currentNpCount?: number | null;
+      availableSpots?: number | null;
+      supervisionModel: string;
+      hourlyRate?: number | null;
+      revenueSharePercentage?: number | null;
+      yearsSupervising?: number | null;
+      responseTime?: string | null;
+      badges?: string | null;
+      isPremiumPhysician?: boolean | null;
+  })[];
+}
+
+export interface SearchPhysiciansWithStateCapacityVariables {
   stateCode?: string | null;
   specialtyType?: string | null;
   availableForNewNPs?: boolean | null;
@@ -1173,7 +1280,6 @@ export interface UpdateNpDirectoryProfileData {
 }
 
 export interface UpdateNpDirectoryProfileVariables {
-  userId: string;
   isActive?: boolean | null;
   profileVisibility?: string | null;
   seekingStates?: string | null;
@@ -1189,7 +1295,6 @@ export interface UpdatePhysicianDirectoryProfileData {
 }
 
 export interface UpdatePhysicianDirectoryProfileVariables {
-  userId: string;
   availableForNewNPs?: boolean | null;
   maxNPs?: number | null;
   availableSpots?: number | null;
@@ -1201,6 +1306,18 @@ export interface UpdatePhysicianDirectoryProfileVariables {
   supervisionModel?: string | null;
   hourlyRate?: number | null;
   revenueSharePercentage?: number | null;
+}
+
+export interface UpsertStateCapacityData {
+  providerStateCapacity_upsert: ProviderStateCapacity_Key;
+}
+
+export interface UpsertStateCapacityVariables {
+  stateId: UUIDString;
+  maxNpCapacity: number;
+  currentNpCount: number;
+  isAccepting: boolean;
+  notes?: string | null;
 }
 
 export interface UpsertUserProfileData {
@@ -1351,27 +1468,27 @@ export function createNpDirectory(dc: DataConnect, vars: CreateNpDirectoryVariab
 
 interface UpdatePhysicianDirectoryProfileRef {
   /* Allow users to create refs without passing in DataConnect */
-  (vars: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+  (vars?: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
   /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+  (dc: DataConnect, vars?: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
   operationName: string;
 }
 export const updatePhysicianDirectoryProfileRef: UpdatePhysicianDirectoryProfileRef;
 
-export function updatePhysicianDirectoryProfile(vars: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
-export function updatePhysicianDirectoryProfile(dc: DataConnect, vars: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+export function updatePhysicianDirectoryProfile(vars?: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+export function updatePhysicianDirectoryProfile(dc: DataConnect, vars?: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
 
 interface UpdateNpDirectoryProfileRef {
   /* Allow users to create refs without passing in DataConnect */
-  (vars: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+  (vars?: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
   /* Allow users to pass in custom DataConnect instances */
-  (dc: DataConnect, vars: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+  (dc: DataConnect, vars?: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
   operationName: string;
 }
 export const updateNpDirectoryProfileRef: UpdateNpDirectoryProfileRef;
 
-export function updateNpDirectoryProfile(vars: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
-export function updateNpDirectoryProfile(dc: DataConnect, vars: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+export function updateNpDirectoryProfile(vars?: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+export function updateNpDirectoryProfile(dc: DataConnect, vars?: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
 
 interface CreateDirectoryMatchRef {
   /* Allow users to create refs without passing in DataConnect */
@@ -1384,6 +1501,18 @@ export const createDirectoryMatchRef: CreateDirectoryMatchRef;
 
 export function createDirectoryMatch(vars: CreateDirectoryMatchVariables): MutationPromise<CreateDirectoryMatchData, CreateDirectoryMatchVariables>;
 export function createDirectoryMatch(dc: DataConnect, vars: CreateDirectoryMatchVariables): MutationPromise<CreateDirectoryMatchData, CreateDirectoryMatchVariables>;
+
+interface CreateDirectoryMatchByPhysicianRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: CreateDirectoryMatchByPhysicianVariables): MutationRef<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: CreateDirectoryMatchByPhysicianVariables): MutationRef<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+  operationName: string;
+}
+export const createDirectoryMatchByPhysicianRef: CreateDirectoryMatchByPhysicianRef;
+
+export function createDirectoryMatchByPhysician(vars: CreateDirectoryMatchByPhysicianVariables): MutationPromise<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+export function createDirectoryMatchByPhysician(dc: DataConnect, vars: CreateDirectoryMatchByPhysicianVariables): MutationPromise<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
 
 interface UpdateMatchStatusRef {
   /* Allow users to create refs without passing in DataConnect */
@@ -1504,6 +1633,42 @@ export const updateChartReviewDocumentRef: UpdateChartReviewDocumentRef;
 
 export function updateChartReviewDocument(vars: UpdateChartReviewDocumentVariables): MutationPromise<UpdateChartReviewDocumentData, UpdateChartReviewDocumentVariables>;
 export function updateChartReviewDocument(dc: DataConnect, vars: UpdateChartReviewDocumentVariables): MutationPromise<UpdateChartReviewDocumentData, UpdateChartReviewDocumentVariables>;
+
+interface CreateMediaRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: CreateMediaVariables): MutationRef<CreateMediaData, CreateMediaVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: CreateMediaVariables): MutationRef<CreateMediaData, CreateMediaVariables>;
+  operationName: string;
+}
+export const createMediaRef: CreateMediaRef;
+
+export function createMedia(vars: CreateMediaVariables): MutationPromise<CreateMediaData, CreateMediaVariables>;
+export function createMedia(dc: DataConnect, vars: CreateMediaVariables): MutationPromise<CreateMediaData, CreateMediaVariables>;
+
+interface UpsertStateCapacityRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertStateCapacityVariables): MutationRef<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: UpsertStateCapacityVariables): MutationRef<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+  operationName: string;
+}
+export const upsertStateCapacityRef: UpsertStateCapacityRef;
+
+export function upsertStateCapacity(vars: UpsertStateCapacityVariables): MutationPromise<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+export function upsertStateCapacity(dc: DataConnect, vars: UpsertStateCapacityVariables): MutationPromise<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+
+interface DeleteStateCapacityRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteStateCapacityVariables): MutationRef<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: DeleteStateCapacityVariables): MutationRef<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+  operationName: string;
+}
+export const deleteStateCapacityRef: DeleteStateCapacityRef;
+
+export function deleteStateCapacity(vars: DeleteStateCapacityVariables): MutationPromise<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+export function deleteStateCapacity(dc: DataConnect, vars: DeleteStateCapacityVariables): MutationPromise<DeleteStateCapacityData, DeleteStateCapacityVariables>;
 
 interface ListStatesRef {
   /* Allow users to create refs without passing in DataConnect */
@@ -1804,6 +1969,42 @@ export const getStateRatioRef: GetStateRatioRef;
 
 export function getStateRatio(vars: GetStateRatioVariables): QueryPromise<GetStateRatioData, GetStateRatioVariables>;
 export function getStateRatio(dc: DataConnect, vars: GetStateRatioVariables): QueryPromise<GetStateRatioData, GetStateRatioVariables>;
+
+interface GetMyStateCapacitiesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetMyStateCapacitiesData, undefined>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect): QueryRef<GetMyStateCapacitiesData, undefined>;
+  operationName: string;
+}
+export const getMyStateCapacitiesRef: GetMyStateCapacitiesRef;
+
+export function getMyStateCapacities(): QueryPromise<GetMyStateCapacitiesData, undefined>;
+export function getMyStateCapacities(dc: DataConnect): QueryPromise<GetMyStateCapacitiesData, undefined>;
+
+interface GetPhysicianStateCapacitiesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetPhysicianStateCapacitiesVariables): QueryRef<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: GetPhysicianStateCapacitiesVariables): QueryRef<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+  operationName: string;
+}
+export const getPhysicianStateCapacitiesRef: GetPhysicianStateCapacitiesRef;
+
+export function getPhysicianStateCapacities(vars: GetPhysicianStateCapacitiesVariables): QueryPromise<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+export function getPhysicianStateCapacities(dc: DataConnect, vars: GetPhysicianStateCapacitiesVariables): QueryPromise<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+
+interface SearchPhysiciansWithStateCapacityRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars?: SearchPhysiciansWithStateCapacityVariables): QueryRef<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars?: SearchPhysiciansWithStateCapacityVariables): QueryRef<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+  operationName: string;
+}
+export const searchPhysiciansWithStateCapacityRef: SearchPhysiciansWithStateCapacityRef;
+
+export function searchPhysiciansWithStateCapacity(vars?: SearchPhysiciansWithStateCapacityVariables): QueryPromise<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+export function searchPhysiciansWithStateCapacity(dc: DataConnect, vars?: SearchPhysiciansWithStateCapacityVariables): QueryPromise<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
 
 interface SeedStatesRef {
   /* Allow users to create refs without passing in DataConnect */

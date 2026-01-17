@@ -1,10 +1,16 @@
 # List all states with their compliance requirements
 query ListStates @auth(level: PUBLIC, insecureReason: "State compliance information is public data") {
-  states {
+  states(orderBy: { stateName: ASC }) {
     id
     stateCode
     stateName
     fpaAvailable
+    fpaAutomaticWithLicense
+    fpaRequiresApplication
+    fpaHoursRequired
+    fpaYearsRequired
+    fpaWithinStateRequired
+    fpaCmeHoursRequired
     paVerificationRequired
     cpaRequired
     boardFilingRequired
@@ -70,18 +76,21 @@ query GetMyProfile @auth(level: USER, insecureReason: "Owner views profile") {
 
 # Get current user's licenses
 query GetMyLicenses @auth(level: USER, insecureReason: "Owner views licenses") {
-  licenses(where: { user: { id: { eq_expr: "auth.uid" } } }) {
+  licenses(where: { userId: { eq_expr: "auth.uid" } }) {
     id
     licenseNumber
     licenseType
     issueDate
     expirationDate
     verificationStatus
+    verificationDate
     fpaStatus
     rxAuthorityStatus
     state {
+      id
       stateCode
       stateName
+      licenseVerificationUrl
     }
   }
 }
@@ -127,8 +136,8 @@ query GetLicenseWithFPAEligibility($licenseId: UUID!) @auth(level: USER, insecur
 query GetMyConversations @auth(level: USER, insecureReason: "Participant views conversations") {
   conversations(where: {
     _or: [
-      { npUser: { id: { eq_expr: "auth.uid" } } }
-      { physicianUser: { id: { eq_expr: "auth.uid" } } }
+      { npUserId: { eq_expr: "auth.uid" } }
+      { physicianUserId: { eq_expr: "auth.uid" } }
     ]
   }, orderBy: { lastMessageAt: DESC }) {
     id
@@ -449,8 +458,8 @@ query GetMyAgreements @auth(level: USER, insecureReason: "Participant views agre
   collaborationAgreements(
     where: {
       _or: [
-        { npLicense: { user: { id: { eq_expr: "auth.uid" } } } }
-        { physicianLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+        { npLicense: { userId: { eq_expr: "auth.uid" } } }
+        { physicianLicense: { userId: { eq_expr: "auth.uid" } } }
       ]
     }
     orderBy: { createdAt: DESC }
@@ -748,8 +757,8 @@ query GetUpcomingQAMeetings @auth(level: USER, insecureReason: "Participant view
         { isActive: { eq: true } }
         {
           _or: [
-            { npLicense: { user: { id: { eq_expr: "auth.uid" } } } }
-            { physicianLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+            { npLicense: { userId: { eq_expr: "auth.uid" } } }
+            { physicianLicense: { userId: { eq_expr: "auth.uid" } } }
           ]
         }
       ]
@@ -789,8 +798,8 @@ query GetUpcomingQAMeetings @auth(level: USER, insecureReason: "Participant view
         {
           collaborationAgreement: {
             _or: [
-              { npLicense: { user: { id: { eq_expr: "auth.uid" } } } }
-              { physicianLicense: { user: { id: { eq_expr: "auth.uid" } } } }
+              { npLicense: { userId: { eq_expr: "auth.uid" } } }
+              { physicianLicense: { userId: { eq_expr: "auth.uid" } } }
             ]
           }
         }
@@ -812,7 +821,7 @@ query GetActiveCPACount($physicianId: String!, $stateCode: String!) @auth(level:
   collaborationAgreements(
     where: {
       _and: [
-        { physicianLicense: { user: { id: { eq: $physicianId } } } }
+        { physicianLicense: { userId: { eq: $physicianId } } }
         { state: { stateCode: { eq: $stateCode } } }
         { isActive: { eq: true } }
         { status: { eq: "active" } }
@@ -829,5 +838,74 @@ query GetStateRatio($stateCode: String!) @auth(level: PUBLIC, insecureReason: "P
     physicianNpRatio
     hasRatioLimit
     ratioNote
+  }
+}
+
+# Get current physician's per-state capacities
+query GetMyStateCapacities @auth(level: USER) {
+  providerStateCapacities(where: { provider: { id: { eq_expr: "auth.uid" } } }) {
+    id
+    state {
+      id
+      stateCode
+      stateName
+    }
+    maxNpCapacity
+    currentNpCount
+    isAccepting
+    notes
+    createdAt
+    updatedAt
+  }
+}
+
+# Get a physician's per-state capacities (public directory view)
+query GetPhysicianStateCapacities($physicianId: String!) @auth(level: PUBLIC, insecureReason: "Provider directory is public for matching") {
+  providerStateCapacities(where: { provider: { id: { eq: $physicianId } } }) {
+    id
+    state {
+      id
+      stateCode
+      stateName
+    }
+    maxNpCapacity
+    currentNpCount
+    isAccepting
+    notes
+  }
+}
+
+# Search physicians with state-specific capacity info
+query SearchPhysiciansWithStateCapacity($stateCode: String, $specialtyType: String, $availableForNewNPs: Boolean) @auth(level: PUBLIC, insecureReason: "Provider directory is public for matching") {
+  providerDirectories(
+    where: {
+      _and: [
+        { isActive: { eq: true } }
+        { profileVisibility: { eq: "public" } }
+        { availableStates: { contains: $stateCode } }
+        { primarySpecialty: { eq: $specialtyType } }
+        { availableSpots: { gt: 0 } }
+      ]
+    }
+  ) {
+    physician {
+      id
+      displayName
+      email
+    }
+    isActive
+    availableStates
+    primarySpecialty
+    secondarySpecialties
+    totalNpCapacity
+    currentNpCount
+    availableSpots
+    supervisionModel
+    hourlyRate
+    revenueSharePercentage
+    yearsSupervising
+    responseTime
+    badges
+    isPremiumPhysician
   }
 }

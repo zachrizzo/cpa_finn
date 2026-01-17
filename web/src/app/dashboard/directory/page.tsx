@@ -2,10 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, User } from "lucide-react";
+import { Search, User, MapPin } from "lucide-react";
 import { getDc } from "@/lib/firebase";
-import { listStates, searchPhysicians, searchNPs } from "@dataconnect/generated";
+import { listStates, searchPhysicians, searchNPs, createDirectoryMatch, createDirectoryMatchByPhysician, getPhysicianStateCapacities } from "@dataconnect/generated";
 import { toast } from "sonner";
+import { useAuth } from "@/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+
+type StateCapacityInfo = {
+    stateCode: string;
+    stateName: string;
+    maxNpCapacity: number;
+    currentNpCount: number;
+    isAccepting: boolean;
+    notes?: string | null;
+};
 
 type Provider = {
     id: string;
@@ -15,48 +26,22 @@ type Provider = {
     states: string;
     specialty: string;
     availability: string;
-    supervisionModel?: string;
-    hourlyRate?: number;
-    revenueSharePercentage?: number;
-    totalNpCapacity?: number;
-    currentNpCount?: number;
-    availableSpots?: number;
-    hoursPerWeekAvailable?: number;
-    preferredCompensationModel?: string;
+    supervisionModel?: string | null;
+    hourlyRate?: number | null;
+    revenueSharePercentage?: number | null;
+    totalNpCapacity?: number | null;
+    currentNpCount?: number | null;
+    availableSpots?: number | null;
+    hoursPerWeekAvailable?: number | null;
+    preferredCompensationModel?: string | null;
+    // Per-state capacity info (loaded on demand)
+    stateCapacity?: StateCapacityInfo | null;
 };
 
 interface State {
     id?: string;
     stateCode: string;
     stateName: string;
-}
-
-interface ProviderDirectoryItem {
-    physician: {
-        id: string;
-        displayName: string | null;
-        email: string;
-    };
-    availableStates: string | null;
-    primarySpecialty: string | null;
-    supervisionModel: string | null;
-    hourlyRate: number | null;
-    revenueSharePercentage: number | null;
-    totalNpCapacity: number | null;
-    currentNpCount: number | null;
-    availableSpots: number | null;
-}
-
-interface NpDirectoryItem {
-    np: {
-        id: string;
-        displayName: string | null;
-        email: string;
-    };
-    seekingStates: string | null;
-    primarySpecialty: string | null;
-    hoursPerWeekAvailable: number | null;
-    preferredCompensationModel: string | null;
 }
 
 export default function DirectorySearchPage() {
@@ -69,6 +54,12 @@ export default function DirectorySearchPage() {
         specialtyType: "",
         availableOnly: true,
     });
+    const [showMatchModal, setShowMatchModal] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+    const [selectedStateId, setSelectedStateId] = useState<string>("");
+    const [requestingMatch, setRequestingMatch] = useState(false);
+    useAuth(); // Ensure user is authenticated
+    const router = useRouter();
 
     const specialties = [
         "Family Medicine",
@@ -87,13 +78,39 @@ export default function DirectorySearchPage() {
         async function fetchStates() {
             try {
                 const { data } = await listStates(getDc());
-                setStates(data.states);
+                // Deduplicate states by stateCode (in case seed data has duplicates)
+                const uniqueStates = Array.from(
+                    new Map(data.states.map(s => [s.stateCode, s])).values()
+                );
+                setStates(uniqueStates);
             } catch {
                 toast.error("Failed to load states");
             }
         }
         fetchStates();
     }, []);
+
+    // Fetch per-state capacity for a physician
+    const fetchStateCapacity = async (physicianId: string, stateCode: string): Promise<StateCapacityInfo | null> => {
+        try {
+            const { data } = await getPhysicianStateCapacities(getDc(), { physicianId });
+            const capacities = data.providerStateCapacities || [];
+            const stateCapacity = capacities.find(cap => cap.state.stateCode === stateCode);
+            if (stateCapacity) {
+                return {
+                    stateCode: stateCapacity.state.stateCode,
+                    stateName: stateCapacity.state.stateName,
+                    maxNpCapacity: stateCapacity.maxNpCapacity,
+                    currentNpCount: stateCapacity.currentNpCount,
+                    isAccepting: stateCapacity.isAccepting,
+                    notes: stateCapacity.notes,
+                };
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    };
 
     const handleSearch = async () => {
         setLoading(true);
@@ -105,7 +122,7 @@ export default function DirectorySearchPage() {
                     availableForNewNPs: filters.availableOnly || undefined,
                 });
 
-                const formattedProviders = (data.providerDirectories || []).map((pd: ProviderDirectoryItem) => ({
+                const formattedProviders: Provider[] = (data.providerDirectories || []).map((pd) => ({
                     id: pd.physician.id,
                     displayName: pd.physician.displayName || "Unknown",
                     email: pd.physician.email,
@@ -122,7 +139,19 @@ export default function DirectorySearchPage() {
                     currentNpCount: pd.currentNpCount,
                     availableSpots: pd.availableSpots,
                 }));
-                setProviders(formattedProviders);
+
+                // If a specific state is selected, fetch per-state capacity for each physician
+                if (filters.stateCode) {
+                    const providersWithCapacity = await Promise.all(
+                        formattedProviders.map(async (provider) => {
+                            const stateCapacity = await fetchStateCapacity(provider.id, filters.stateCode);
+                            return { ...provider, stateCapacity };
+                        })
+                    );
+                    setProviders(providersWithCapacity);
+                } else {
+                    setProviders(formattedProviders);
+                }
             } else {
                 const { data } = await searchNPs(getDc(), {
                     stateCode: filters.stateCode || undefined,
@@ -130,7 +159,7 @@ export default function DirectorySearchPage() {
                     needsCPA: true,
                 });
 
-                const formattedProviders = (data.npDirectories || []).map((nd: NpDirectoryItem) => ({
+                const formattedProviders = (data.npDirectories || []).map((nd) => ({
                     id: nd.np.id,
                     displayName: nd.np.displayName || "Unknown",
                     email: nd.np.email,
@@ -154,7 +183,87 @@ export default function DirectorySearchPage() {
 
     useEffect(() => {
         handleSearch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchType]);
+
+    const openMatchModal = (provider: Provider) => {
+        setSelectedProvider(provider);
+        // Pre-select the filtered state if one is selected
+        if (filters.stateCode) {
+            const state = states.find(s => s.stateCode === filters.stateCode);
+            if (state?.id) {
+                setSelectedStateId(state.id);
+            } else {
+                setSelectedStateId("");
+            }
+        } else {
+            setSelectedStateId("");
+        }
+        setShowMatchModal(true);
+    };
+
+    const handleRequestMatch = async () => {
+        if (!selectedProvider || !selectedStateId) {
+            toast.error("Please select a state for the collaboration");
+            return;
+        }
+
+        setRequestingMatch(true);
+        try {
+            // NP searching for physician uses createDirectoryMatch
+            // Physician searching for NP uses createDirectoryMatchByPhysician
+            if (searchType === "physician") {
+                await createDirectoryMatch(getDc(), {
+                    targetPhysicianId: selectedProvider.id,
+                    stateId: selectedStateId as `${string}-${string}-${string}-${string}-${string}`,
+                });
+            } else {
+                await createDirectoryMatchByPhysician(getDc(), {
+                    targetNpId: selectedProvider.id,
+                    stateId: selectedStateId as `${string}-${string}-${string}-${string}-${string}`,
+                });
+            }
+
+            toast.success(`Match request sent to ${selectedProvider.displayName}!`);
+            setShowMatchModal(false);
+            setSelectedProvider(null);
+
+            // Navigate to messages page
+            router.push("/dashboard/messages");
+        } catch (error) {
+            console.error("Error requesting match:", error);
+            toast.error("Failed to send match request. Please try again.");
+        } finally {
+            setRequestingMatch(false);
+        }
+    };
+
+    // Helper to format state-specific availability
+    const formatStateAvailability = (provider: Provider): { text: string; isAvailable: boolean } => {
+        if (provider.stateCapacity) {
+            const cap = provider.stateCapacity;
+            const availableSpots = cap.maxNpCapacity - cap.currentNpCount;
+            if (!cap.isAccepting) {
+                return { text: `Not accepting in ${cap.stateCode}`, isAvailable: false };
+            }
+            if (availableSpots <= 0) {
+                return { text: `Full in ${cap.stateCode} (${cap.currentNpCount}/${cap.maxNpCapacity})`, isAvailable: false };
+            }
+            return {
+                text: `${cap.stateCode}: ${cap.currentNpCount}/${cap.maxNpCapacity} NPs (${availableSpots} spots)`,
+                isAvailable: true
+            };
+        }
+        // Fall back to global availability
+        const availableSpots = provider.availableSpots ?? 0;
+        if (availableSpots > 0) {
+            return {
+                text: `${provider.currentNpCount}/${provider.totalNpCapacity} NPs (${availableSpots} spots)`,
+                isAvailable: true
+            };
+        }
+        return { text: "Not accepting", isAvailable: false };
+    };
 
     return (
         <div className="space-y-6">
@@ -217,6 +326,11 @@ export default function DirectorySearchPage() {
                                     </option>
                                 ))}
                             </select>
+                            {filters.stateCode && searchType === "physician" && (
+                                <p className="mt-1 text-xs text-blue-600">
+                                    Showing state-specific availability for {filters.stateCode}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -278,70 +392,171 @@ export default function DirectorySearchPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {providers.map((provider) => (
-                            <div
-                                key={provider.id}
-                                className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow"
-                            >
-                                <div className="space-y-3">
-                                    <div>
-                                        <h3 className="font-semibold text-lg text-gray-900">
-                                            {provider.displayName}
-                                        </h3>
-                                        <p className="text-sm text-gray-500">{provider.role}</p>
-                                    </div>
+                        {providers.map((provider) => {
+                            const stateAvailability = provider.role === "Physician"
+                                ? formatStateAvailability(provider)
+                                : null;
 
-                                    <div className="space-y-2 text-sm">
+                            return (
+                                <div
+                                    key={provider.id}
+                                    className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow"
+                                >
+                                    <div className="space-y-3">
                                         <div>
-                                            <span className="font-medium text-gray-700">States: </span>
-                                            <span className="text-gray-600">{provider.states}</span>
+                                            <h3 className="font-semibold text-lg text-gray-900">
+                                                {provider.displayName}
+                                            </h3>
+                                            <p className="text-sm text-gray-500">{provider.role}</p>
                                         </div>
-                                        <div>
-                                            <span className="font-medium text-gray-700">Specialty: </span>
-                                            <span className="text-gray-600">{provider.specialty}</span>
-                                        </div>
-                                        <div>
-                                            <span className="font-medium text-gray-700">Availability: </span>
-                                            <span className={`font-medium ${
-                                                provider.availableSpots && provider.availableSpots > 0
-                                                    ? "text-green-600"
-                                                    : "text-gray-600"
-                                            }`}>
-                                                {provider.availability}
-                                            </span>
-                                        </div>
-                                        {provider.supervisionModel && (
-                                            <div>
-                                                <span className="font-medium text-gray-700">Model: </span>
-                                                <span className="text-gray-600">{provider.supervisionModel}</span>
-                                            </div>
-                                        )}
-                                        {provider.hourlyRate && (
-                                            <div>
-                                                <span className="font-medium text-gray-700">Rate: </span>
-                                                <span className="text-gray-600">${provider.hourlyRate}/hr</span>
-                                            </div>
-                                        )}
-                                        {provider.revenueSharePercentage && (
-                                            <div>
-                                                <span className="font-medium text-gray-700">Revenue Share: </span>
-                                                <span className="text-gray-600">{provider.revenueSharePercentage}%</span>
-                                            </div>
-                                        )}
-                                    </div>
 
-                                    <button
-                                        className="w-full mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                                        onClick={() => alert(`Request match with ${provider.displayName}`)}
-                                    >
-                                        Request Match
-                                    </button>
+                                        <div className="space-y-2 text-sm">
+                                            <div>
+                                                <span className="font-medium text-gray-700">States: </span>
+                                                <span className="text-gray-600">{provider.states}</span>
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-gray-700">Specialty: </span>
+                                                <span className="text-gray-600">{provider.specialty}</span>
+                                            </div>
+
+                                            {/* State-specific availability for physicians */}
+                                            {provider.role === "Physician" && stateAvailability && (
+                                                <div className="flex items-start gap-1">
+                                                    {provider.stateCapacity && (
+                                                        <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                                    )}
+                                                    <div>
+                                                        <span className="font-medium text-gray-700">Availability: </span>
+                                                        <span className={`font-medium ${
+                                                            stateAvailability.isAvailable
+                                                                ? "text-green-600"
+                                                                : "text-gray-600"
+                                                        }`}>
+                                                            {stateAvailability.text}
+                                                        </span>
+                                                        {provider.stateCapacity?.notes && (
+                                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                                {provider.stateCapacity.notes}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* NP availability */}
+                                            {provider.role === "NP" && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Availability: </span>
+                                                    <span className="text-gray-600">{provider.availability}</span>
+                                                </div>
+                                            )}
+
+                                            {provider.supervisionModel && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Model: </span>
+                                                    <span className="text-gray-600">{provider.supervisionModel}</span>
+                                                </div>
+                                            )}
+                                            {provider.hourlyRate && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Rate: </span>
+                                                    <span className="text-gray-600">${provider.hourlyRate}/hr</span>
+                                                </div>
+                                            )}
+                                            {provider.revenueSharePercentage && (
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Revenue Share: </span>
+                                                    <span className="text-gray-600">{provider.revenueSharePercentage}%</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            className="w-full mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                            onClick={() => openMatchModal(provider)}
+                                        >
+                                            Request Match
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
+
+            {/* Match Request Modal */}
+            {showMatchModal && selectedProvider && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex min-h-screen items-center justify-center px-4 py-6">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowMatchModal(false)} />
+                        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Request Match with {selectedProvider.displayName}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Select a state for this collaboration agreement. You can only request a match for states where you are both licensed.
+                            </p>
+
+                            {/* Show state-specific capacity info if available */}
+                            {selectedProvider.stateCapacity && (
+                                <div className="mb-4 p-3 bg-blue-50 rounded-md">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <MapPin className="h-4 w-4 text-blue-600" />
+                                        <span className="font-medium text-blue-900">
+                                            {selectedProvider.stateCapacity.stateCode} Capacity:
+                                        </span>
+                                        <span className={selectedProvider.stateCapacity.isAccepting ? "text-green-700" : "text-red-700"}>
+                                            {selectedProvider.stateCapacity.currentNpCount}/{selectedProvider.stateCapacity.maxNpCapacity} NPs
+                                            {!selectedProvider.stateCapacity.isAccepting && " (Not accepting)"}
+                                        </span>
+                                    </div>
+                                    {selectedProvider.stateCapacity.notes && (
+                                        <p className="text-xs text-blue-700 mt-1">
+                                            Note: {selectedProvider.stateCapacity.notes}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    State for Collaboration
+                                </label>
+                                <select
+                                    value={selectedStateId}
+                                    onChange={(e) => setSelectedStateId(e.target.value)}
+                                    className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                >
+                                    <option value="">Select a state...</option>
+                                    {states.map((state) => (
+                                        <option key={state.id} value={state.id}>
+                                            {state.stateName} ({state.stateCode})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setShowMatchModal(false)}
+                                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleRequestMatch}
+                                    disabled={!selectedStateId || requestingMatch}
+                                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                                >
+                                    {requestingMatch ? "Sending..." : "Send Match Request"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 import { auth, dc } from "./firebase";
 import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { upsertUserProfile } from "@dataconnect/generated";
+import { upsertUserProfile, createPhysicianDirectory, createNpDirectory } from "@dataconnect/generated";
 
 export async function signUpUser(email: string, password: string, displayName: string, role: string) {
     // 1. Create User in Firebase Authentication
@@ -22,6 +22,28 @@ export async function signUpUser(email: string, password: string, displayName: s
     try {
         await upsertUserProfile(dc, { displayName, role });
         console.log("User synced to Data Connect successfully");
+
+        // Create directory profile so the user appears in the directory immediately
+        if (role === "PHYSICIAN") {
+            await createPhysicianDirectory(dc, {
+                availableStates: "CA,TX,NY,FL", // Default states, user can update later
+                specialtyType: "Family Medicine",
+                maxNPs: 5,
+                currentNPCount: 0,
+                availableForNewNPs: true,
+                supervisionModel: "collaborative",
+            });
+            console.log("Physician directory profile created successfully");
+        } else if (role === "NP") {
+            await createNpDirectory(dc, {
+                seekingStates: "CA,TX,NY,FL", // Default states, user can update later
+                licensedStates: "CA",
+                specialtyType: "Family Medicine",
+                needsCPA: true,
+                cpaNeededStates: "CA,TX,NY,FL",
+            });
+            console.log("NP directory profile created successfully");
+        }
     } catch (error) {
         console.error("Failed to sync user to Data Connect:", error);
         // Note: Use a more robust error handling approach in production (e.g. queueing, informing user)
@@ -48,6 +70,28 @@ export async function signInWithGoogle(role?: string) {
     if (role && dc) {
         try {
             await upsertUserProfile(dc, { displayName: user.displayName || "Google User", role });
+
+            // Create directory profile so the user appears in the directory immediately
+            if (role === "PHYSICIAN") {
+                await createPhysicianDirectory(dc, {
+                    availableStates: "CA,TX,NY,FL",
+                    specialtyType: "Family Medicine",
+                    maxNPs: 5,
+                    currentNPCount: 0,
+                    availableForNewNPs: true,
+                    supervisionModel: "collaborative",
+                });
+                console.log("Physician directory profile created successfully");
+            } else if (role === "NP") {
+                await createNpDirectory(dc, {
+                    seekingStates: "CA,TX,NY,FL",
+                    licensedStates: "CA",
+                    specialtyType: "Family Medicine",
+                    needsCPA: true,
+                    cpaNeededStates: "CA,TX,NY,FL",
+                });
+                console.log("NP directory profile created successfully");
+            }
         } catch (error) {
             console.error("Failed to sync Google user to Data Connect:", error);
         }

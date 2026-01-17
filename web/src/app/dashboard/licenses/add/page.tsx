@@ -6,8 +6,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { getDc } from "@/lib/firebase";
-import { listStates, createLicense } from "@dataconnect/generated";
+import { listStates, createLicense, ListStatesData } from "@dataconnect/generated";
 import { toast } from "sonner";
+import MonthYearPicker from "@/components/MonthYearPicker";
+import FPARequirementsCard, { stateRequiresSupervisedTracking } from "@/components/FPARequirementsCard";
+import { CheckCircle, ExternalLink, X } from "lucide-react";
+
+const currentYear = new Date().getFullYear();
 
 const licenseSchema = z.object({
     stateId: z.string().min(1, "State is required"),
@@ -20,22 +25,48 @@ const licenseSchema = z.object({
 });
 
 type LicenseFormValues = z.infer<typeof licenseSchema>;
+type State = ListStatesData['states'][number];
+
+interface VerificationModalState {
+    isOpen: boolean;
+    stateName: string;
+    verificationUrl: string | null | undefined;
+}
 
 export default function AddLicensePage() {
-    const [states, setStates] = useState<unknown[]>([]);
+    const [states, setStates] = useState<State[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [verificationModal, setVerificationModal] = useState<VerificationModalState>({
+        isOpen: false,
+        stateName: "",
+        verificationUrl: null,
+    });
     const router = useRouter();
 
-    const { register, handleSubmit, formState: { errors } } = useForm<LicenseFormValues>({
+    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<LicenseFormValues>({
         resolver: zodResolver(licenseSchema),
     });
+
+    // Watch date values for the MonthYearPicker components
+    const issueDate = watch("issueDate");
+    const expirationDate = watch("expirationDate");
+
+    // Watch stateId to display FPA requirements
+    const selectedStateId = watch("stateId");
+    const selectedState = states.find((s) => s.id === selectedStateId);
+    const showSupervisedTracking = stateRequiresSupervisedTracking(selectedState);
 
     useEffect(() => {
         async function fetchStates() {
             try {
                 const { data } = await listStates(getDc());
-                setStates(data.states);
+                // Sort states alphabetically by stateName as a fallback
+                // (in case database orderBy doesn't work)
+                const sortedStates = [...data.states].sort((a, b) =>
+                    a.stateName.localeCompare(b.stateName)
+                );
+                setStates(sortedStates);
             } catch {
                 toast.error("Failed to load states");
             }
@@ -57,13 +88,34 @@ export default function AddLicensePage() {
                 supervisedHoursInState: data.supervisedHoursInState ? parseInt(data.supervisedHoursInState) : undefined,
                 supervisedYearsInState: data.supervisedYearsInState ? parseInt(data.supervisedYearsInState) : undefined,
             });
-            router.push("/dashboard/licenses");
+
+            // Find the saved state to get its verification URL
+            const savedState = states.find(s => s.id === data.stateId);
+
+            // Show verification modal
+            setVerificationModal({
+                isOpen: true,
+                stateName: savedState?.stateName || "your state",
+                verificationUrl: savedState?.licenseVerificationUrl,
+            });
+
+            toast.success("License saved successfully!");
         } catch {
-            // console.error(err);
             setError("Failed to add license. Please try again.");
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleVerifyNow = () => {
+        if (verificationModal.verificationUrl) {
+            window.open(verificationModal.verificationUrl, "_blank", "noopener,noreferrer");
+        }
+    };
+
+    const handleSkipVerification = () => {
+        setVerificationModal({ isOpen: false, stateName: "", verificationUrl: null });
+        router.push("/dashboard/licenses");
     };
 
     return (
@@ -89,20 +141,14 @@ export default function AddLicensePage() {
                                         {state.stateName}
                                     </option>
                                 ))}
-                                {/* Fallback if IDs are not UUID but something else, though schema says UUID. 
-                     Wait, schema says State @table. 
-                     If I don't have IDs in listStates query, I might fail.
-                     Let's check queries.gql... it selects stateCode, stateName... BUT NOT ID. 
-                     CRITICAL MISTAKE in queries.gql vs usage here? 
-                     'state(id: $id)' exists, but 'states' query returns code/name. 
-                     Data Connect usually generates an ID for @table unless @table(key: ...) is user defined. 
-                     Checking schema.gql: State @table (no key). So it has a UUID 'id' field implicit.
-                     I need to update queries.gql to fetch ID. 
-                 */}
-                                <option disabled>Loading states...</option>
                             </select>
                             {errors.stateId && <p className="mt-1 text-sm text-red-600">{errors.stateId.message}</p>}
                         </div>
+
+                        {/* FPA Requirements Card - shown when a state is selected */}
+                        {selectedState && (
+                            <FPARequirementsCard state={selectedState} />
+                        )}
 
                         <div>
                             <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700">License Number</label>
@@ -127,67 +173,92 @@ export default function AddLicensePage() {
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="issueDate" className="block text-sm font-medium text-gray-700">Issue Date</label>
-                                <input
-                                    {...register("issueDate")}
-                                    type="date"
-                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                <label htmlFor="issueDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Issue Date
+                                </label>
+                                <MonthYearPicker
+                                    id="issueDate"
+                                    value={issueDate}
+                                    onChange={(value) => setValue("issueDate", value, { shouldValidate: true })}
+                                    minYear={1970}
+                                    maxYear={currentYear}
                                 />
                                 {errors.issueDate && <p className="mt-1 text-sm text-red-600">{errors.issueDate.message}</p>}
                             </div>
 
                             <div>
-                                <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700">Expiration Date</label>
-                                <input
-                                    {...register("expirationDate")}
-                                    type="date"
-                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Expiration Date
+                                </label>
+                                <MonthYearPicker
+                                    id="expirationDate"
+                                    value={expirationDate}
+                                    onChange={(value) => setValue("expirationDate", value, { shouldValidate: true })}
+                                    minYear={currentYear}
+                                    maxYear={currentYear + 10}
                                 />
                                 {errors.expirationDate && <p className="mt-1 text-sm text-red-600">{errors.expirationDate.message}</p>}
                             </div>
                         </div>
 
-                        <div className="border-t pt-4 mt-4">
-                            <h3 className="text-sm font-medium text-gray-900 mb-3">FPA Eligibility Tracking (Optional)</h3>
-                            <p className="text-xs text-gray-500 mb-3">Track supervised hours and years to calculate FPA eligibility</p>
+                        {/* Supervised Hours/Years Section - only shown for states that require it */}
+                        {showSupervisedTracking && selectedState && (
+                            <div className="border-t pt-4 mt-4">
+                                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                                    FPA Eligibility Tracking
+                                </h3>
+                                <p className="text-xs text-gray-500 mb-3">
+                                    {selectedState.stateName} requires supervised practice for FPA. Track your progress below.
+                                </p>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="supervisedHoursInState" className="block text-sm font-medium text-gray-700">
-                                        Supervised Hours in State
-                                    </label>
-                                    <input
-                                        {...register("supervisedHoursInState")}
-                                        type="number"
-                                        min="0"
-                                        placeholder="e.g., 2000"
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                                    />
-                                    {errors.supervisedHoursInState && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.supervisedHoursInState.message}</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {selectedState.fpaHoursRequired && (
+                                        <div>
+                                            <label htmlFor="supervisedHoursInState" className="block text-sm font-medium text-gray-700">
+                                                Supervised Hours in State
+                                            </label>
+                                            <input
+                                                {...register("supervisedHoursInState")}
+                                                type="number"
+                                                min="0"
+                                                placeholder={`Required: ${selectedState.fpaHoursRequired.toLocaleString()}`}
+                                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Goal: {selectedState.fpaHoursRequired.toLocaleString()} hours
+                                            </p>
+                                            {errors.supervisedHoursInState && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.supervisedHoursInState.message}</p>
+                                            )}
+                                        </div>
                                     )}
-                                </div>
 
-                                <div>
-                                    <label htmlFor="supervisedYearsInState" className="block text-sm font-medium text-gray-700">
-                                        Supervised Years in State
-                                    </label>
-                                    <input
-                                        {...register("supervisedYearsInState")}
-                                        type="number"
-                                        min="0"
-                                        step="0.1"
-                                        placeholder="e.g., 2.5"
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                                    />
-                                    {errors.supervisedYearsInState && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.supervisedYearsInState.message}</p>
+                                    {selectedState.fpaYearsRequired && (
+                                        <div>
+                                            <label htmlFor="supervisedYearsInState" className="block text-sm font-medium text-gray-700">
+                                                Supervised Years in State
+                                            </label>
+                                            <input
+                                                {...register("supervisedYearsInState")}
+                                                type="number"
+                                                min="0"
+                                                step="0.1"
+                                                placeholder={`Required: ${selectedState.fpaYearsRequired}`}
+                                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Goal: {selectedState.fpaYearsRequired} {selectedState.fpaYearsRequired === 1 ? "year" : "years"}
+                                            </p>
+                                            {errors.supervisedYearsInState && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.supervisedYearsInState.message}</p>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {error && (
@@ -214,6 +285,67 @@ export default function AddLicensePage() {
                     </div>
                 </form>
             </div>
+
+            {/* Verification Modal */}
+            {verificationModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+                        <button
+                            onClick={handleSkipVerification}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                            aria-label="Close"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+
+                        <div className="text-center">
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                                <CheckCircle className="h-6 w-6 text-green-600" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                Your license has been saved!
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-6">
+                                To verify your license, click below to visit the {verificationModal.stateName} state board website.
+                                Once you have confirmed your license details, you can mark it as verified in the licenses list.
+                            </p>
+
+                            <div className="flex flex-col gap-3">
+                                {verificationModal.verificationUrl ? (
+                                    <>
+                                        <button
+                                            onClick={handleVerifyNow}
+                                            className="inline-flex items-center justify-center gap-2 w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                            Verify on State Board Website
+                                        </button>
+                                        <button
+                                            onClick={handleSkipVerification}
+                                            className="inline-flex items-center justify-center w-full rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        >
+                                            Skip for now
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md">
+                                            No verification URL is available for {verificationModal.stateName}.
+                                            You can manually search for the state board website to verify your license.
+                                        </p>
+                                        <button
+                                            onClick={handleSkipVerification}
+                                            className="inline-flex items-center justify-center w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                        >
+                                            Continue to Licenses
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

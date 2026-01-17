@@ -3,17 +3,40 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node scripts/dev-start.js",
+    "dev:clean": "node scripts/dev-start.js basic --clean",
+    "dev:full": "node scripts/dev-start.js full",
+    "dev:minimal": "node scripts/dev-start.js minimal",
+    "dev:stress": "node scripts/dev-start.js stress",
+    "seed": "node scripts/seed-auth.js massive --clean",
+    "seed:basic": "node scripts/seed-auth.js basic --clean",
+    "seed:massive": "node scripts/seed-auth.js massive --clean",
+    "seed:prod": "node scripts/seed-auth.js basic --prod",
+    "seed:prod:clean": "node scripts/seed-auth.js basic --clean --prod",
+    "seed:prod:massive": "node scripts/seed-auth.js massive --clean --prod",
+    "users": "node scripts/list-users.js",
+    "db:clean": "node scripts/clean-db.js",
+    "db:clean:auth": "node scripts/clean-db.js --auth",
+    "db:clean:data": "node scripts/clean-db.js --data",
+    "db:clean:prod": "node scripts/clean-db.js --prod",
+    "db:clear": "rm -rf .firebase dataconnect/.dataconnect/pgliteData",
+    "db:reset": "npm run db:clear && echo 'Database cleared. Run npm run dev to restart with fresh data.'",
+    "emulators": "npx firebase-tools emulators:start",
+    "web": "cd web && npm run dev"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "FINN Healthcare Compliance Platform - Collaborative Practice Agreement Management",
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
-    "firebase": "^12.7.0"
+    "firebase": "^12.7.0",
+    "firebase-admin": "^13.0.0"
   },
   "devDependencies": {
-    "firebase-tools": "^15.0.0"
+    "@faker-js/faker": "^9.9.0",
+    "concurrently": "^9.1.2",
+    "firebase-tools": "^15.0.0",
+    "wait-on": "^8.0.1"
   }
 }

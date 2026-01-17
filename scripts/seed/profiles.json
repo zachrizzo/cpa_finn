@@ -1,0 +1,111 @@
+{
+  "minimal": {
+    "description": "Just states data for lightweight testing",
+    "entities": {
+      "State": {
+        "count": 16,
+        "useStaticData": true
+      }
+    }
+  },
+  "basic": {
+    "description": "Essential data for development",
+    "entities": {
+      "State": {
+        "count": 50,
+        "useStaticData": true
+      },
+      "User": {
+        "count": 4
+      },
+      "License": {
+        "count": 8
+      }
+    }
+  },
+  "full": {
+    "description": "Complete test dataset with relationships",
+    "entities": {
+      "State": {
+        "count": 50,
+        "useStaticData": true
+      },
+      "User": {
+        "count": 20
+      },
+      "License": {
+        "count": 40
+      },
+      "CollaborationAgreement": {
+        "count": 12
+      },
+      "Conversation": {
+        "count": 13
+      },
+      "Message": {
+        "count": 100
+      },
+      "NpDirectory": {
+        "count": 10
+      },
+      "ProviderDirectory": {
+        "count": 10
+      }
+    }
+  },
+  "massive": {
+    "description": "Large-scale dataset for performance and stress testing (100 users, 200-300 licenses, 100+ agreements)",
+    "entities": {
+      "State": {
+        "count": 50,
+        "useStaticData": true
+      },
+      "User": {
+        "count": 100,
+        "notes": "50 NPs + 50 Physicians, programmatically generated"
+      },
+      "License": {
+        "count": 300,
+        "notes": "2-5 licenses per user across different states"
+      },
+      "CollaborationAgreement": {
+        "count": 120,
+        "notes": "Random pairings of NPs and physicians with common state licenses"
+      },
+      "Conversation": {
+        "count": 120,
+        "notes": "One per agreement plus additional exploration conversations"
+      },
+      "Message": {
+        "count": 1000,
+        "notes": "4-12 messages per conversation"
+      },
+      "NpDirectory": {
+        "count": 50,
+        "notes": "One per NP"
+      },
+      "ProviderDirectory": {
+        "count": 50,
+        "notes": "One per Physician"
+      }
+    }
+  },
+  "stress": {
+    "description": "Legacy stress test profile (use 'massive' instead)",
+    "entities": {
+      "State": {
+        "count": 50,
+        "useStaticData": true
+      },
+      "User": {
+        "count": 100
+      },
+      "License": {
+        "count": 400
+      },
+      "CollaborationAgreement": {
+        "count": 200
+      }
+    }
+  }
+}

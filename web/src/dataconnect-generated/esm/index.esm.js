@@ -128,7 +128,7 @@ export function createNpDirectory(dcOrVars, vars) {
 }
 
 export const updatePhysicianDirectoryProfileRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
   dcInstance._useGeneratedSdk();
   return mutationRef(dcInstance, 'UpdatePhysicianDirectoryProfile', inputVars);
 }
@@ -139,7 +139,7 @@ export function updatePhysicianDirectoryProfile(dcOrVars, vars) {
 }
 
 export const updateNpDirectoryProfileRef = (dcOrVars, vars) => {
-  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
   dcInstance._useGeneratedSdk();
   return mutationRef(dcInstance, 'UpdateNPDirectoryProfile', inputVars);
 }
@@ -158,6 +158,17 @@ createDirectoryMatchRef.operationName = 'CreateDirectoryMatch';
 
 export function createDirectoryMatch(dcOrVars, vars) {
   return executeMutation(createDirectoryMatchRef(dcOrVars, vars));
+}
+
+export const createDirectoryMatchByPhysicianRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'CreateDirectoryMatchByPhysician', inputVars);
+}
+createDirectoryMatchByPhysicianRef.operationName = 'CreateDirectoryMatchByPhysician';
+
+export function createDirectoryMatchByPhysician(dcOrVars, vars) {
+  return executeMutation(createDirectoryMatchByPhysicianRef(dcOrVars, vars));
 }
 
 export const updateMatchStatusRef = (dcOrVars, vars) => {
@@ -268,6 +279,39 @@ updateChartReviewDocumentRef.operationName = 'UpdateChartReviewDocument';
 
 export function updateChartReviewDocument(dcOrVars, vars) {
   return executeMutation(updateChartReviewDocumentRef(dcOrVars, vars));
+}
+
+export const createMediaRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'CreateMedia', inputVars);
+}
+createMediaRef.operationName = 'CreateMedia';
+
+export function createMedia(dcOrVars, vars) {
+  return executeMutation(createMediaRef(dcOrVars, vars));
+}
+
+export const upsertStateCapacityRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'UpsertStateCapacity', inputVars);
+}
+upsertStateCapacityRef.operationName = 'UpsertStateCapacity';
+
+export function upsertStateCapacity(dcOrVars, vars) {
+  return executeMutation(upsertStateCapacityRef(dcOrVars, vars));
+}
+
+export const deleteStateCapacityRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'DeleteStateCapacity', inputVars);
+}
+deleteStateCapacityRef.operationName = 'DeleteStateCapacity';
+
+export function deleteStateCapacity(dcOrVars, vars) {
+  return executeMutation(deleteStateCapacityRef(dcOrVars, vars));
 }
 
 export const listStatesRef = (dc) => {
@@ -543,6 +587,39 @@ getStateRatioRef.operationName = 'GetStateRatio';
 
 export function getStateRatio(dcOrVars, vars) {
   return executeQuery(getStateRatioRef(dcOrVars, vars));
+}
+
+export const getMyStateCapacitiesRef = (dc) => {
+  const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetMyStateCapacities');
+}
+getMyStateCapacitiesRef.operationName = 'GetMyStateCapacities';
+
+export function getMyStateCapacities(dc) {
+  return executeQuery(getMyStateCapacitiesRef(dc));
+}
+
+export const getPhysicianStateCapacitiesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'GetPhysicianStateCapacities', inputVars);
+}
+getPhysicianStateCapacitiesRef.operationName = 'GetPhysicianStateCapacities';
+
+export function getPhysicianStateCapacities(dcOrVars, vars) {
+  return executeQuery(getPhysicianStateCapacitiesRef(dcOrVars, vars));
+}
+
+export const searchPhysiciansWithStateCapacityRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'SearchPhysiciansWithStateCapacity', inputVars);
+}
+searchPhysiciansWithStateCapacityRef.operationName = 'SearchPhysiciansWithStateCapacity';
+
+export function searchPhysiciansWithStateCapacity(dcOrVars, vars) {
+  return executeQuery(searchPhysiciansWithStateCapacityRef(dcOrVars, vars));
 }
 
 export const seedStatesRef = (dc) => {

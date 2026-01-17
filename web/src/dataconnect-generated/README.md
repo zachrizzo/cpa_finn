@@ -33,6 +33,9 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetUpcomingQAMeetings*](#getupcomingqameetings)
   - [*GetActiveCPACount*](#getactivecpacount)
   - [*GetStateRatio*](#getstateratio)
+  - [*GetMyStateCapacities*](#getmystatecapacities)
+  - [*GetPhysicianStateCapacities*](#getphysicianstatecapacities)
+  - [*SearchPhysiciansWithStateCapacity*](#searchphysicianswithstatecapacity)
 - [**Mutations**](#mutations)
   - [*UpsertUserProfile*](#upsertuserprofile)
   - [*CreateLicense*](#createlicense)
@@ -48,6 +51,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*UpdatePhysicianDirectoryProfile*](#updatephysiciandirectoryprofile)
   - [*UpdateNPDirectoryProfile*](#updatenpdirectoryprofile)
   - [*CreateDirectoryMatch*](#createdirectorymatch)
+  - [*CreateDirectoryMatchByPhysician*](#createdirectorymatchbyphysician)
   - [*UpdateMatchStatus*](#updatematchstatus)
   - [*CreateCollaborationAgreement*](#createcollaborationagreement)
   - [*SignAgreement*](#signagreement)
@@ -58,6 +62,9 @@ This README will guide you through the process of using the generated JavaScript
   - [*ScheduleQAMeeting*](#scheduleqameeting)
   - [*CompleteQAMeeting*](#completeqameeting)
   - [*UpdateChartReviewDocument*](#updatechartreviewdocument)
+  - [*CreateMedia*](#createmedia)
+  - [*UpsertStateCapacity*](#upsertstatecapacity)
+  - [*DeleteStateCapacity*](#deletestatecapacity)
   - [*SeedStates*](#seedstates)
 
 # Accessing the connector
@@ -147,6 +154,12 @@ export interface ListStatesData {
     stateCode: string;
     stateName: string;
     fpaAvailable: boolean;
+    fpaAutomaticWithLicense?: boolean | null;
+    fpaRequiresApplication?: boolean | null;
+    fpaHoursRequired?: number | null;
+    fpaYearsRequired?: number | null;
+    fpaWithinStateRequired?: boolean | null;
+    fpaCmeHoursRequired?: number | null;
     paVerificationRequired: boolean;
     cpaRequired?: boolean | null;
     boardFilingRequired?: boolean | null;
@@ -599,12 +612,15 @@ export interface GetMyLicensesData {
     issueDate: DateString;
     expirationDate: DateString;
     verificationStatus: string;
+    verificationDate?: TimestampString | null;
     fpaStatus?: string | null;
     rxAuthorityStatus?: string | null;
     state: {
+      id: UUIDString;
       stateCode: string;
       stateName: string;
-    };
+      licenseVerificationUrl?: string | null;
+    } & State_Key;
   } & License_Key)[];
 }
 ```
@@ -3362,6 +3378,369 @@ executeQuery(ref).then((response) => {
 });
 ```
 
+## GetMyStateCapacities
+You can execute the `GetMyStateCapacities` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getMyStateCapacities(): QueryPromise<GetMyStateCapacitiesData, undefined>;
+
+interface GetMyStateCapacitiesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (): QueryRef<GetMyStateCapacitiesData, undefined>;
+}
+export const getMyStateCapacitiesRef: GetMyStateCapacitiesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getMyStateCapacities(dc: DataConnect): QueryPromise<GetMyStateCapacitiesData, undefined>;
+
+interface GetMyStateCapacitiesRef {
+  ...
+  (dc: DataConnect): QueryRef<GetMyStateCapacitiesData, undefined>;
+}
+export const getMyStateCapacitiesRef: GetMyStateCapacitiesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyStateCapacitiesRef:
+```typescript
+const name = getMyStateCapacitiesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetMyStateCapacities` query has no variables.
+### Return Type
+Recall that executing the `GetMyStateCapacities` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetMyStateCapacitiesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetMyStateCapacitiesData {
+  providerStateCapacities: ({
+    id: UUIDString;
+    state: {
+      id: UUIDString;
+      stateCode: string;
+      stateName: string;
+    } & State_Key;
+      maxNpCapacity: number;
+      currentNpCount: number;
+      isAccepting: boolean;
+      notes?: string | null;
+      createdAt: TimestampString;
+      updatedAt?: TimestampString | null;
+  } & ProviderStateCapacity_Key)[];
+}
+```
+### Using `GetMyStateCapacities`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getMyStateCapacities } from '@dataconnect/generated';
+
+
+// Call the `getMyStateCapacities()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getMyStateCapacities();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getMyStateCapacities(dataConnect);
+
+console.log(data.providerStateCapacities);
+
+// Or, you can use the `Promise` API.
+getMyStateCapacities().then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacities);
+});
+```
+
+### Using `GetMyStateCapacities`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getMyStateCapacitiesRef } from '@dataconnect/generated';
+
+
+// Call the `getMyStateCapacitiesRef()` function to get a reference to the query.
+const ref = getMyStateCapacitiesRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getMyStateCapacitiesRef(dataConnect);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.providerStateCapacities);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacities);
+});
+```
+
+## GetPhysicianStateCapacities
+You can execute the `GetPhysicianStateCapacities` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+getPhysicianStateCapacities(vars: GetPhysicianStateCapacitiesVariables): QueryPromise<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+
+interface GetPhysicianStateCapacitiesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: GetPhysicianStateCapacitiesVariables): QueryRef<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+}
+export const getPhysicianStateCapacitiesRef: GetPhysicianStateCapacitiesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+getPhysicianStateCapacities(dc: DataConnect, vars: GetPhysicianStateCapacitiesVariables): QueryPromise<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+
+interface GetPhysicianStateCapacitiesRef {
+  ...
+  (dc: DataConnect, vars: GetPhysicianStateCapacitiesVariables): QueryRef<GetPhysicianStateCapacitiesData, GetPhysicianStateCapacitiesVariables>;
+}
+export const getPhysicianStateCapacitiesRef: GetPhysicianStateCapacitiesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getPhysicianStateCapacitiesRef:
+```typescript
+const name = getPhysicianStateCapacitiesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `GetPhysicianStateCapacities` query requires an argument of type `GetPhysicianStateCapacitiesVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface GetPhysicianStateCapacitiesVariables {
+  physicianId: string;
+}
+```
+### Return Type
+Recall that executing the `GetPhysicianStateCapacities` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `GetPhysicianStateCapacitiesData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface GetPhysicianStateCapacitiesData {
+  providerStateCapacities: ({
+    id: UUIDString;
+    state: {
+      id: UUIDString;
+      stateCode: string;
+      stateName: string;
+    } & State_Key;
+      maxNpCapacity: number;
+      currentNpCount: number;
+      isAccepting: boolean;
+      notes?: string | null;
+  } & ProviderStateCapacity_Key)[];
+}
+```
+### Using `GetPhysicianStateCapacities`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, getPhysicianStateCapacities, GetPhysicianStateCapacitiesVariables } from '@dataconnect/generated';
+
+// The `GetPhysicianStateCapacities` query requires an argument of type `GetPhysicianStateCapacitiesVariables`:
+const getPhysicianStateCapacitiesVars: GetPhysicianStateCapacitiesVariables = {
+  physicianId: ..., 
+};
+
+// Call the `getPhysicianStateCapacities()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await getPhysicianStateCapacities(getPhysicianStateCapacitiesVars);
+// Variables can be defined inline as well.
+const { data } = await getPhysicianStateCapacities({ physicianId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await getPhysicianStateCapacities(dataConnect, getPhysicianStateCapacitiesVars);
+
+console.log(data.providerStateCapacities);
+
+// Or, you can use the `Promise` API.
+getPhysicianStateCapacities(getPhysicianStateCapacitiesVars).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacities);
+});
+```
+
+### Using `GetPhysicianStateCapacities`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, getPhysicianStateCapacitiesRef, GetPhysicianStateCapacitiesVariables } from '@dataconnect/generated';
+
+// The `GetPhysicianStateCapacities` query requires an argument of type `GetPhysicianStateCapacitiesVariables`:
+const getPhysicianStateCapacitiesVars: GetPhysicianStateCapacitiesVariables = {
+  physicianId: ..., 
+};
+
+// Call the `getPhysicianStateCapacitiesRef()` function to get a reference to the query.
+const ref = getPhysicianStateCapacitiesRef(getPhysicianStateCapacitiesVars);
+// Variables can be defined inline as well.
+const ref = getPhysicianStateCapacitiesRef({ physicianId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = getPhysicianStateCapacitiesRef(dataConnect, getPhysicianStateCapacitiesVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.providerStateCapacities);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacities);
+});
+```
+
+## SearchPhysiciansWithStateCapacity
+You can execute the `SearchPhysiciansWithStateCapacity` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+searchPhysiciansWithStateCapacity(vars?: SearchPhysiciansWithStateCapacityVariables): QueryPromise<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+
+interface SearchPhysiciansWithStateCapacityRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars?: SearchPhysiciansWithStateCapacityVariables): QueryRef<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+}
+export const searchPhysiciansWithStateCapacityRef: SearchPhysiciansWithStateCapacityRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+searchPhysiciansWithStateCapacity(dc: DataConnect, vars?: SearchPhysiciansWithStateCapacityVariables): QueryPromise<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+
+interface SearchPhysiciansWithStateCapacityRef {
+  ...
+  (dc: DataConnect, vars?: SearchPhysiciansWithStateCapacityVariables): QueryRef<SearchPhysiciansWithStateCapacityData, SearchPhysiciansWithStateCapacityVariables>;
+}
+export const searchPhysiciansWithStateCapacityRef: SearchPhysiciansWithStateCapacityRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the searchPhysiciansWithStateCapacityRef:
+```typescript
+const name = searchPhysiciansWithStateCapacityRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `SearchPhysiciansWithStateCapacity` query has an optional argument of type `SearchPhysiciansWithStateCapacityVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface SearchPhysiciansWithStateCapacityVariables {
+  stateCode?: string | null;
+  specialtyType?: string | null;
+  availableForNewNPs?: boolean | null;
+}
+```
+### Return Type
+Recall that executing the `SearchPhysiciansWithStateCapacity` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `SearchPhysiciansWithStateCapacityData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface SearchPhysiciansWithStateCapacityData {
+  providerDirectories: ({
+    physician: {
+      id: string;
+      displayName?: string | null;
+      email: string;
+    } & User_Key;
+      isActive: boolean;
+      availableStates: string;
+      primarySpecialty: string;
+      secondarySpecialties?: string | null;
+      totalNpCapacity?: number | null;
+      currentNpCount?: number | null;
+      availableSpots?: number | null;
+      supervisionModel: string;
+      hourlyRate?: number | null;
+      revenueSharePercentage?: number | null;
+      yearsSupervising?: number | null;
+      responseTime?: string | null;
+      badges?: string | null;
+      isPremiumPhysician?: boolean | null;
+  })[];
+}
+```
+### Using `SearchPhysiciansWithStateCapacity`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, searchPhysiciansWithStateCapacity, SearchPhysiciansWithStateCapacityVariables } from '@dataconnect/generated';
+
+// The `SearchPhysiciansWithStateCapacity` query has an optional argument of type `SearchPhysiciansWithStateCapacityVariables`:
+const searchPhysiciansWithStateCapacityVars: SearchPhysiciansWithStateCapacityVariables = {
+  stateCode: ..., // optional
+  specialtyType: ..., // optional
+  availableForNewNPs: ..., // optional
+};
+
+// Call the `searchPhysiciansWithStateCapacity()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await searchPhysiciansWithStateCapacity(searchPhysiciansWithStateCapacityVars);
+// Variables can be defined inline as well.
+const { data } = await searchPhysiciansWithStateCapacity({ stateCode: ..., specialtyType: ..., availableForNewNPs: ..., });
+// Since all variables are optional for this query, you can omit the `SearchPhysiciansWithStateCapacityVariables` argument.
+const { data } = await searchPhysiciansWithStateCapacity();
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await searchPhysiciansWithStateCapacity(dataConnect, searchPhysiciansWithStateCapacityVars);
+
+console.log(data.providerDirectories);
+
+// Or, you can use the `Promise` API.
+searchPhysiciansWithStateCapacity(searchPhysiciansWithStateCapacityVars).then((response) => {
+  const data = response.data;
+  console.log(data.providerDirectories);
+});
+```
+
+### Using `SearchPhysiciansWithStateCapacity`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, searchPhysiciansWithStateCapacityRef, SearchPhysiciansWithStateCapacityVariables } from '@dataconnect/generated';
+
+// The `SearchPhysiciansWithStateCapacity` query has an optional argument of type `SearchPhysiciansWithStateCapacityVariables`:
+const searchPhysiciansWithStateCapacityVars: SearchPhysiciansWithStateCapacityVariables = {
+  stateCode: ..., // optional
+  specialtyType: ..., // optional
+  availableForNewNPs: ..., // optional
+};
+
+// Call the `searchPhysiciansWithStateCapacityRef()` function to get a reference to the query.
+const ref = searchPhysiciansWithStateCapacityRef(searchPhysiciansWithStateCapacityVars);
+// Variables can be defined inline as well.
+const ref = searchPhysiciansWithStateCapacityRef({ stateCode: ..., specialtyType: ..., availableForNewNPs: ..., });
+// Since all variables are optional for this query, you can omit the `SearchPhysiciansWithStateCapacityVariables` argument.
+const ref = searchPhysiciansWithStateCapacityRef();
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = searchPhysiciansWithStateCapacityRef(dataConnect, searchPhysiciansWithStateCapacityVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.providerDirectories);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.providerDirectories);
+});
+```
+
 # Mutations
 
 There are two ways to execute a Data Connect Mutation using the generated Web SDK:
@@ -4459,7 +4838,6 @@ The `CreatePhysicianDirectory` mutation requires an argument of type `CreatePhys
 
 ```typescript
 export interface CreatePhysicianDirectoryVariables {
-  userId: string;
   availableStates: string;
   specialtyType: string;
   maxNPs: number;
@@ -4485,7 +4863,6 @@ import { connectorConfig, createPhysicianDirectory, CreatePhysicianDirectoryVari
 
 // The `CreatePhysicianDirectory` mutation requires an argument of type `CreatePhysicianDirectoryVariables`:
 const createPhysicianDirectoryVars: CreatePhysicianDirectoryVariables = {
-  userId: ..., 
   availableStates: ..., 
   specialtyType: ..., 
   maxNPs: ..., 
@@ -4498,7 +4875,7 @@ const createPhysicianDirectoryVars: CreatePhysicianDirectoryVariables = {
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await createPhysicianDirectory(createPhysicianDirectoryVars);
 // Variables can be defined inline as well.
-const { data } = await createPhysicianDirectory({ userId: ..., availableStates: ..., specialtyType: ..., maxNPs: ..., currentNPCount: ..., availableForNewNPs: ..., supervisionModel: ..., });
+const { data } = await createPhysicianDirectory({ availableStates: ..., specialtyType: ..., maxNPs: ..., currentNPCount: ..., availableForNewNPs: ..., supervisionModel: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4521,7 +4898,6 @@ import { connectorConfig, createPhysicianDirectoryRef, CreatePhysicianDirectoryV
 
 // The `CreatePhysicianDirectory` mutation requires an argument of type `CreatePhysicianDirectoryVariables`:
 const createPhysicianDirectoryVars: CreatePhysicianDirectoryVariables = {
-  userId: ..., 
   availableStates: ..., 
   specialtyType: ..., 
   maxNPs: ..., 
@@ -4533,7 +4909,7 @@ const createPhysicianDirectoryVars: CreatePhysicianDirectoryVariables = {
 // Call the `createPhysicianDirectoryRef()` function to get a reference to the mutation.
 const ref = createPhysicianDirectoryRef(createPhysicianDirectoryVars);
 // Variables can be defined inline as well.
-const ref = createPhysicianDirectoryRef({ userId: ..., availableStates: ..., specialtyType: ..., maxNPs: ..., currentNPCount: ..., availableForNewNPs: ..., supervisionModel: ..., });
+const ref = createPhysicianDirectoryRef({ availableStates: ..., specialtyType: ..., maxNPs: ..., currentNPCount: ..., availableForNewNPs: ..., supervisionModel: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4586,7 +4962,6 @@ The `CreateNPDirectory` mutation requires an argument of type `CreateNpDirectory
 
 ```typescript
 export interface CreateNpDirectoryVariables {
-  userId: string;
   seekingStates: string;
   licensedStates: string;
   specialtyType: string;
@@ -4611,7 +4986,6 @@ import { connectorConfig, createNpDirectory, CreateNpDirectoryVariables } from '
 
 // The `CreateNPDirectory` mutation requires an argument of type `CreateNpDirectoryVariables`:
 const createNpDirectoryVars: CreateNpDirectoryVariables = {
-  userId: ..., 
   seekingStates: ..., 
   licensedStates: ..., 
   specialtyType: ..., 
@@ -4623,7 +4997,7 @@ const createNpDirectoryVars: CreateNpDirectoryVariables = {
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await createNpDirectory(createNpDirectoryVars);
 // Variables can be defined inline as well.
-const { data } = await createNpDirectory({ userId: ..., seekingStates: ..., licensedStates: ..., specialtyType: ..., needsCPA: ..., cpaNeededStates: ..., });
+const { data } = await createNpDirectory({ seekingStates: ..., licensedStates: ..., specialtyType: ..., needsCPA: ..., cpaNeededStates: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4646,7 +5020,6 @@ import { connectorConfig, createNpDirectoryRef, CreateNpDirectoryVariables } fro
 
 // The `CreateNPDirectory` mutation requires an argument of type `CreateNpDirectoryVariables`:
 const createNpDirectoryVars: CreateNpDirectoryVariables = {
-  userId: ..., 
   seekingStates: ..., 
   licensedStates: ..., 
   specialtyType: ..., 
@@ -4657,7 +5030,7 @@ const createNpDirectoryVars: CreateNpDirectoryVariables = {
 // Call the `createNpDirectoryRef()` function to get a reference to the mutation.
 const ref = createNpDirectoryRef(createNpDirectoryVars);
 // Variables can be defined inline as well.
-const ref = createNpDirectoryRef({ userId: ..., seekingStates: ..., licensedStates: ..., specialtyType: ..., needsCPA: ..., cpaNeededStates: ..., });
+const ref = createNpDirectoryRef({ seekingStates: ..., licensedStates: ..., specialtyType: ..., needsCPA: ..., cpaNeededStates: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4679,22 +5052,22 @@ executeMutation(ref).then((response) => {
 ## UpdatePhysicianDirectoryProfile
 You can execute the `UpdatePhysicianDirectoryProfile` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-updatePhysicianDirectoryProfile(vars: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+updatePhysicianDirectoryProfile(vars?: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
 
 interface UpdatePhysicianDirectoryProfileRef {
   ...
   /* Allow users to create refs without passing in DataConnect */
-  (vars: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+  (vars?: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
 }
 export const updatePhysicianDirectoryProfileRef: UpdatePhysicianDirectoryProfileRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
 ```typescript
-updatePhysicianDirectoryProfile(dc: DataConnect, vars: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+updatePhysicianDirectoryProfile(dc: DataConnect, vars?: UpdatePhysicianDirectoryProfileVariables): MutationPromise<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
 
 interface UpdatePhysicianDirectoryProfileRef {
   ...
-  (dc: DataConnect, vars: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
+  (dc: DataConnect, vars?: UpdatePhysicianDirectoryProfileVariables): MutationRef<UpdatePhysicianDirectoryProfileData, UpdatePhysicianDirectoryProfileVariables>;
 }
 export const updatePhysicianDirectoryProfileRef: UpdatePhysicianDirectoryProfileRef;
 ```
@@ -4706,11 +5079,10 @@ console.log(name);
 ```
 
 ### Variables
-The `UpdatePhysicianDirectoryProfile` mutation requires an argument of type `UpdatePhysicianDirectoryProfileVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+The `UpdatePhysicianDirectoryProfile` mutation has an optional argument of type `UpdatePhysicianDirectoryProfileVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
 
 ```typescript
 export interface UpdatePhysicianDirectoryProfileVariables {
-  userId: string;
   availableForNewNPs?: boolean | null;
   maxNPs?: number | null;
   availableSpots?: number | null;
@@ -4739,9 +5111,8 @@ export interface UpdatePhysicianDirectoryProfileData {
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, updatePhysicianDirectoryProfile, UpdatePhysicianDirectoryProfileVariables } from '@dataconnect/generated';
 
-// The `UpdatePhysicianDirectoryProfile` mutation requires an argument of type `UpdatePhysicianDirectoryProfileVariables`:
+// The `UpdatePhysicianDirectoryProfile` mutation has an optional argument of type `UpdatePhysicianDirectoryProfileVariables`:
 const updatePhysicianDirectoryProfileVars: UpdatePhysicianDirectoryProfileVariables = {
-  userId: ..., 
   availableForNewNPs: ..., // optional
   maxNPs: ..., // optional
   availableSpots: ..., // optional
@@ -4759,7 +5130,9 @@ const updatePhysicianDirectoryProfileVars: UpdatePhysicianDirectoryProfileVariab
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await updatePhysicianDirectoryProfile(updatePhysicianDirectoryProfileVars);
 // Variables can be defined inline as well.
-const { data } = await updatePhysicianDirectoryProfile({ userId: ..., availableForNewNPs: ..., maxNPs: ..., availableSpots: ..., currentNpCount: ..., isActive: ..., profileVisibility: ..., availableStates: ..., primarySpecialty: ..., supervisionModel: ..., hourlyRate: ..., revenueSharePercentage: ..., });
+const { data } = await updatePhysicianDirectoryProfile({ availableForNewNPs: ..., maxNPs: ..., availableSpots: ..., currentNpCount: ..., isActive: ..., profileVisibility: ..., availableStates: ..., primarySpecialty: ..., supervisionModel: ..., hourlyRate: ..., revenueSharePercentage: ..., });
+// Since all variables are optional for this mutation, you can omit the `UpdatePhysicianDirectoryProfileVariables` argument.
+const { data } = await updatePhysicianDirectoryProfile();
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4780,9 +5153,8 @@ updatePhysicianDirectoryProfile(updatePhysicianDirectoryProfileVars).then((respo
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, updatePhysicianDirectoryProfileRef, UpdatePhysicianDirectoryProfileVariables } from '@dataconnect/generated';
 
-// The `UpdatePhysicianDirectoryProfile` mutation requires an argument of type `UpdatePhysicianDirectoryProfileVariables`:
+// The `UpdatePhysicianDirectoryProfile` mutation has an optional argument of type `UpdatePhysicianDirectoryProfileVariables`:
 const updatePhysicianDirectoryProfileVars: UpdatePhysicianDirectoryProfileVariables = {
-  userId: ..., 
   availableForNewNPs: ..., // optional
   maxNPs: ..., // optional
   availableSpots: ..., // optional
@@ -4799,7 +5171,9 @@ const updatePhysicianDirectoryProfileVars: UpdatePhysicianDirectoryProfileVariab
 // Call the `updatePhysicianDirectoryProfileRef()` function to get a reference to the mutation.
 const ref = updatePhysicianDirectoryProfileRef(updatePhysicianDirectoryProfileVars);
 // Variables can be defined inline as well.
-const ref = updatePhysicianDirectoryProfileRef({ userId: ..., availableForNewNPs: ..., maxNPs: ..., availableSpots: ..., currentNpCount: ..., isActive: ..., profileVisibility: ..., availableStates: ..., primarySpecialty: ..., supervisionModel: ..., hourlyRate: ..., revenueSharePercentage: ..., });
+const ref = updatePhysicianDirectoryProfileRef({ availableForNewNPs: ..., maxNPs: ..., availableSpots: ..., currentNpCount: ..., isActive: ..., profileVisibility: ..., availableStates: ..., primarySpecialty: ..., supervisionModel: ..., hourlyRate: ..., revenueSharePercentage: ..., });
+// Since all variables are optional for this mutation, you can omit the `UpdatePhysicianDirectoryProfileVariables` argument.
+const ref = updatePhysicianDirectoryProfileRef();
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4821,22 +5195,22 @@ executeMutation(ref).then((response) => {
 ## UpdateNPDirectoryProfile
 You can execute the `UpdateNPDirectoryProfile` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-updateNpDirectoryProfile(vars: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+updateNpDirectoryProfile(vars?: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
 
 interface UpdateNpDirectoryProfileRef {
   ...
   /* Allow users to create refs without passing in DataConnect */
-  (vars: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+  (vars?: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
 }
 export const updateNpDirectoryProfileRef: UpdateNpDirectoryProfileRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
 ```typescript
-updateNpDirectoryProfile(dc: DataConnect, vars: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+updateNpDirectoryProfile(dc: DataConnect, vars?: UpdateNpDirectoryProfileVariables): MutationPromise<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
 
 interface UpdateNpDirectoryProfileRef {
   ...
-  (dc: DataConnect, vars: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
+  (dc: DataConnect, vars?: UpdateNpDirectoryProfileVariables): MutationRef<UpdateNpDirectoryProfileData, UpdateNpDirectoryProfileVariables>;
 }
 export const updateNpDirectoryProfileRef: UpdateNpDirectoryProfileRef;
 ```
@@ -4848,11 +5222,10 @@ console.log(name);
 ```
 
 ### Variables
-The `UpdateNPDirectoryProfile` mutation requires an argument of type `UpdateNpDirectoryProfileVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+The `UpdateNPDirectoryProfile` mutation has an optional argument of type `UpdateNpDirectoryProfileVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
 
 ```typescript
 export interface UpdateNpDirectoryProfileVariables {
-  userId: string;
   isActive?: boolean | null;
   profileVisibility?: string | null;
   seekingStates?: string | null;
@@ -4878,9 +5251,8 @@ export interface UpdateNpDirectoryProfileData {
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, updateNpDirectoryProfile, UpdateNpDirectoryProfileVariables } from '@dataconnect/generated';
 
-// The `UpdateNPDirectoryProfile` mutation requires an argument of type `UpdateNpDirectoryProfileVariables`:
+// The `UpdateNPDirectoryProfile` mutation has an optional argument of type `UpdateNpDirectoryProfileVariables`:
 const updateNpDirectoryProfileVars: UpdateNpDirectoryProfileVariables = {
-  userId: ..., 
   isActive: ..., // optional
   profileVisibility: ..., // optional
   seekingStates: ..., // optional
@@ -4895,7 +5267,9 @@ const updateNpDirectoryProfileVars: UpdateNpDirectoryProfileVariables = {
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await updateNpDirectoryProfile(updateNpDirectoryProfileVars);
 // Variables can be defined inline as well.
-const { data } = await updateNpDirectoryProfile({ userId: ..., isActive: ..., profileVisibility: ..., seekingStates: ..., licensedStates: ..., cpaNeededStates: ..., primarySpecialty: ..., hoursPerWeekAvailable: ..., preferredCompensationModel: ..., });
+const { data } = await updateNpDirectoryProfile({ isActive: ..., profileVisibility: ..., seekingStates: ..., licensedStates: ..., cpaNeededStates: ..., primarySpecialty: ..., hoursPerWeekAvailable: ..., preferredCompensationModel: ..., });
+// Since all variables are optional for this mutation, you can omit the `UpdateNpDirectoryProfileVariables` argument.
+const { data } = await updateNpDirectoryProfile();
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4916,9 +5290,8 @@ updateNpDirectoryProfile(updateNpDirectoryProfileVars).then((response) => {
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, updateNpDirectoryProfileRef, UpdateNpDirectoryProfileVariables } from '@dataconnect/generated';
 
-// The `UpdateNPDirectoryProfile` mutation requires an argument of type `UpdateNpDirectoryProfileVariables`:
+// The `UpdateNPDirectoryProfile` mutation has an optional argument of type `UpdateNpDirectoryProfileVariables`:
 const updateNpDirectoryProfileVars: UpdateNpDirectoryProfileVariables = {
-  userId: ..., 
   isActive: ..., // optional
   profileVisibility: ..., // optional
   seekingStates: ..., // optional
@@ -4932,7 +5305,9 @@ const updateNpDirectoryProfileVars: UpdateNpDirectoryProfileVariables = {
 // Call the `updateNpDirectoryProfileRef()` function to get a reference to the mutation.
 const ref = updateNpDirectoryProfileRef(updateNpDirectoryProfileVars);
 // Variables can be defined inline as well.
-const ref = updateNpDirectoryProfileRef({ userId: ..., isActive: ..., profileVisibility: ..., seekingStates: ..., licensedStates: ..., cpaNeededStates: ..., primarySpecialty: ..., hoursPerWeekAvailable: ..., preferredCompensationModel: ..., });
+const ref = updateNpDirectoryProfileRef({ isActive: ..., profileVisibility: ..., seekingStates: ..., licensedStates: ..., cpaNeededStates: ..., primarySpecialty: ..., hoursPerWeekAvailable: ..., preferredCompensationModel: ..., });
+// Since all variables are optional for this mutation, you can omit the `UpdateNpDirectoryProfileVariables` argument.
+const ref = updateNpDirectoryProfileRef();
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -4985,10 +5360,8 @@ The `CreateDirectoryMatch` mutation requires an argument of type `CreateDirector
 
 ```typescript
 export interface CreateDirectoryMatchVariables {
-  requestingUserId: string;
-  targetUserId: string;
+  targetPhysicianId: string;
   stateId: UUIDString;
-  initiatedBy: string;
 }
 ```
 ### Return Type
@@ -5008,17 +5381,15 @@ import { connectorConfig, createDirectoryMatch, CreateDirectoryMatchVariables } 
 
 // The `CreateDirectoryMatch` mutation requires an argument of type `CreateDirectoryMatchVariables`:
 const createDirectoryMatchVars: CreateDirectoryMatchVariables = {
-  requestingUserId: ..., 
-  targetUserId: ..., 
+  targetPhysicianId: ..., 
   stateId: ..., 
-  initiatedBy: ..., 
 };
 
 // Call the `createDirectoryMatch()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await createDirectoryMatch(createDirectoryMatchVars);
 // Variables can be defined inline as well.
-const { data } = await createDirectoryMatch({ requestingUserId: ..., targetUserId: ..., stateId: ..., initiatedBy: ..., });
+const { data } = await createDirectoryMatch({ targetPhysicianId: ..., stateId: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -5041,20 +5412,130 @@ import { connectorConfig, createDirectoryMatchRef, CreateDirectoryMatchVariables
 
 // The `CreateDirectoryMatch` mutation requires an argument of type `CreateDirectoryMatchVariables`:
 const createDirectoryMatchVars: CreateDirectoryMatchVariables = {
-  requestingUserId: ..., 
-  targetUserId: ..., 
+  targetPhysicianId: ..., 
   stateId: ..., 
-  initiatedBy: ..., 
 };
 
 // Call the `createDirectoryMatchRef()` function to get a reference to the mutation.
 const ref = createDirectoryMatchRef(createDirectoryMatchVars);
 // Variables can be defined inline as well.
-const ref = createDirectoryMatchRef({ requestingUserId: ..., targetUserId: ..., stateId: ..., initiatedBy: ..., });
+const ref = createDirectoryMatchRef({ targetPhysicianId: ..., stateId: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
 const ref = createDirectoryMatchRef(dataConnect, createDirectoryMatchVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.directoryMatch_insert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.directoryMatch_insert);
+});
+```
+
+## CreateDirectoryMatchByPhysician
+You can execute the `CreateDirectoryMatchByPhysician` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+createDirectoryMatchByPhysician(vars: CreateDirectoryMatchByPhysicianVariables): MutationPromise<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+
+interface CreateDirectoryMatchByPhysicianRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: CreateDirectoryMatchByPhysicianVariables): MutationRef<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+}
+export const createDirectoryMatchByPhysicianRef: CreateDirectoryMatchByPhysicianRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+createDirectoryMatchByPhysician(dc: DataConnect, vars: CreateDirectoryMatchByPhysicianVariables): MutationPromise<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+
+interface CreateDirectoryMatchByPhysicianRef {
+  ...
+  (dc: DataConnect, vars: CreateDirectoryMatchByPhysicianVariables): MutationRef<CreateDirectoryMatchByPhysicianData, CreateDirectoryMatchByPhysicianVariables>;
+}
+export const createDirectoryMatchByPhysicianRef: CreateDirectoryMatchByPhysicianRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the createDirectoryMatchByPhysicianRef:
+```typescript
+const name = createDirectoryMatchByPhysicianRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `CreateDirectoryMatchByPhysician` mutation requires an argument of type `CreateDirectoryMatchByPhysicianVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface CreateDirectoryMatchByPhysicianVariables {
+  targetNpId: string;
+  stateId: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `CreateDirectoryMatchByPhysician` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `CreateDirectoryMatchByPhysicianData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface CreateDirectoryMatchByPhysicianData {
+  directoryMatch_insert: DirectoryMatch_Key;
+}
+```
+### Using `CreateDirectoryMatchByPhysician`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, createDirectoryMatchByPhysician, CreateDirectoryMatchByPhysicianVariables } from '@dataconnect/generated';
+
+// The `CreateDirectoryMatchByPhysician` mutation requires an argument of type `CreateDirectoryMatchByPhysicianVariables`:
+const createDirectoryMatchByPhysicianVars: CreateDirectoryMatchByPhysicianVariables = {
+  targetNpId: ..., 
+  stateId: ..., 
+};
+
+// Call the `createDirectoryMatchByPhysician()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await createDirectoryMatchByPhysician(createDirectoryMatchByPhysicianVars);
+// Variables can be defined inline as well.
+const { data } = await createDirectoryMatchByPhysician({ targetNpId: ..., stateId: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await createDirectoryMatchByPhysician(dataConnect, createDirectoryMatchByPhysicianVars);
+
+console.log(data.directoryMatch_insert);
+
+// Or, you can use the `Promise` API.
+createDirectoryMatchByPhysician(createDirectoryMatchByPhysicianVars).then((response) => {
+  const data = response.data;
+  console.log(data.directoryMatch_insert);
+});
+```
+
+### Using `CreateDirectoryMatchByPhysician`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, createDirectoryMatchByPhysicianRef, CreateDirectoryMatchByPhysicianVariables } from '@dataconnect/generated';
+
+// The `CreateDirectoryMatchByPhysician` mutation requires an argument of type `CreateDirectoryMatchByPhysicianVariables`:
+const createDirectoryMatchByPhysicianVars: CreateDirectoryMatchByPhysicianVariables = {
+  targetNpId: ..., 
+  stateId: ..., 
+};
+
+// Call the `createDirectoryMatchByPhysicianRef()` function to get a reference to the mutation.
+const ref = createDirectoryMatchByPhysicianRef(createDirectoryMatchByPhysicianVars);
+// Variables can be defined inline as well.
+const ref = createDirectoryMatchByPhysicianRef({ targetNpId: ..., stateId: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = createDirectoryMatchByPhysicianRef(dataConnect, createDirectoryMatchByPhysicianVars);
 
 // Call `executeMutation()` on the reference to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
@@ -6228,6 +6709,363 @@ console.log(data.chartReview_update);
 executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.chartReview_update);
+});
+```
+
+## CreateMedia
+You can execute the `CreateMedia` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+createMedia(vars: CreateMediaVariables): MutationPromise<CreateMediaData, CreateMediaVariables>;
+
+interface CreateMediaRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: CreateMediaVariables): MutationRef<CreateMediaData, CreateMediaVariables>;
+}
+export const createMediaRef: CreateMediaRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+createMedia(dc: DataConnect, vars: CreateMediaVariables): MutationPromise<CreateMediaData, CreateMediaVariables>;
+
+interface CreateMediaRef {
+  ...
+  (dc: DataConnect, vars: CreateMediaVariables): MutationRef<CreateMediaData, CreateMediaVariables>;
+}
+export const createMediaRef: CreateMediaRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the createMediaRef:
+```typescript
+const name = createMediaRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `CreateMedia` mutation requires an argument of type `CreateMediaVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface CreateMediaVariables {
+  mediaId: string;
+  mediaType: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  containsPhi: boolean;
+}
+```
+### Return Type
+Recall that executing the `CreateMedia` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `CreateMediaData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface CreateMediaData {
+  media_insert: Media_Key;
+}
+```
+### Using `CreateMedia`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, createMedia, CreateMediaVariables } from '@dataconnect/generated';
+
+// The `CreateMedia` mutation requires an argument of type `CreateMediaVariables`:
+const createMediaVars: CreateMediaVariables = {
+  mediaId: ..., 
+  mediaType: ..., 
+  fileName: ..., 
+  fileUrl: ..., 
+  fileSize: ..., 
+  mimeType: ..., 
+  containsPhi: ..., 
+};
+
+// Call the `createMedia()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await createMedia(createMediaVars);
+// Variables can be defined inline as well.
+const { data } = await createMedia({ mediaId: ..., mediaType: ..., fileName: ..., fileUrl: ..., fileSize: ..., mimeType: ..., containsPhi: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await createMedia(dataConnect, createMediaVars);
+
+console.log(data.media_insert);
+
+// Or, you can use the `Promise` API.
+createMedia(createMediaVars).then((response) => {
+  const data = response.data;
+  console.log(data.media_insert);
+});
+```
+
+### Using `CreateMedia`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, createMediaRef, CreateMediaVariables } from '@dataconnect/generated';
+
+// The `CreateMedia` mutation requires an argument of type `CreateMediaVariables`:
+const createMediaVars: CreateMediaVariables = {
+  mediaId: ..., 
+  mediaType: ..., 
+  fileName: ..., 
+  fileUrl: ..., 
+  fileSize: ..., 
+  mimeType: ..., 
+  containsPhi: ..., 
+};
+
+// Call the `createMediaRef()` function to get a reference to the mutation.
+const ref = createMediaRef(createMediaVars);
+// Variables can be defined inline as well.
+const ref = createMediaRef({ mediaId: ..., mediaType: ..., fileName: ..., fileUrl: ..., fileSize: ..., mimeType: ..., containsPhi: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = createMediaRef(dataConnect, createMediaVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.media_insert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.media_insert);
+});
+```
+
+## UpsertStateCapacity
+You can execute the `UpsertStateCapacity` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+upsertStateCapacity(vars: UpsertStateCapacityVariables): MutationPromise<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+
+interface UpsertStateCapacityRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: UpsertStateCapacityVariables): MutationRef<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+}
+export const upsertStateCapacityRef: UpsertStateCapacityRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+upsertStateCapacity(dc: DataConnect, vars: UpsertStateCapacityVariables): MutationPromise<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+
+interface UpsertStateCapacityRef {
+  ...
+  (dc: DataConnect, vars: UpsertStateCapacityVariables): MutationRef<UpsertStateCapacityData, UpsertStateCapacityVariables>;
+}
+export const upsertStateCapacityRef: UpsertStateCapacityRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertStateCapacityRef:
+```typescript
+const name = upsertStateCapacityRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `UpsertStateCapacity` mutation requires an argument of type `UpsertStateCapacityVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface UpsertStateCapacityVariables {
+  stateId: UUIDString;
+  maxNpCapacity: number;
+  currentNpCount: number;
+  isAccepting: boolean;
+  notes?: string | null;
+}
+```
+### Return Type
+Recall that executing the `UpsertStateCapacity` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `UpsertStateCapacityData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface UpsertStateCapacityData {
+  providerStateCapacity_upsert: ProviderStateCapacity_Key;
+}
+```
+### Using `UpsertStateCapacity`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, upsertStateCapacity, UpsertStateCapacityVariables } from '@dataconnect/generated';
+
+// The `UpsertStateCapacity` mutation requires an argument of type `UpsertStateCapacityVariables`:
+const upsertStateCapacityVars: UpsertStateCapacityVariables = {
+  stateId: ..., 
+  maxNpCapacity: ..., 
+  currentNpCount: ..., 
+  isAccepting: ..., 
+  notes: ..., // optional
+};
+
+// Call the `upsertStateCapacity()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await upsertStateCapacity(upsertStateCapacityVars);
+// Variables can be defined inline as well.
+const { data } = await upsertStateCapacity({ stateId: ..., maxNpCapacity: ..., currentNpCount: ..., isAccepting: ..., notes: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await upsertStateCapacity(dataConnect, upsertStateCapacityVars);
+
+console.log(data.providerStateCapacity_upsert);
+
+// Or, you can use the `Promise` API.
+upsertStateCapacity(upsertStateCapacityVars).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacity_upsert);
+});
+```
+
+### Using `UpsertStateCapacity`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, upsertStateCapacityRef, UpsertStateCapacityVariables } from '@dataconnect/generated';
+
+// The `UpsertStateCapacity` mutation requires an argument of type `UpsertStateCapacityVariables`:
+const upsertStateCapacityVars: UpsertStateCapacityVariables = {
+  stateId: ..., 
+  maxNpCapacity: ..., 
+  currentNpCount: ..., 
+  isAccepting: ..., 
+  notes: ..., // optional
+};
+
+// Call the `upsertStateCapacityRef()` function to get a reference to the mutation.
+const ref = upsertStateCapacityRef(upsertStateCapacityVars);
+// Variables can be defined inline as well.
+const ref = upsertStateCapacityRef({ stateId: ..., maxNpCapacity: ..., currentNpCount: ..., isAccepting: ..., notes: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = upsertStateCapacityRef(dataConnect, upsertStateCapacityVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.providerStateCapacity_upsert);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacity_upsert);
+});
+```
+
+## DeleteStateCapacity
+You can execute the `DeleteStateCapacity` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
+```typescript
+deleteStateCapacity(vars: DeleteStateCapacityVariables): MutationPromise<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+
+interface DeleteStateCapacityRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: DeleteStateCapacityVariables): MutationRef<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+}
+export const deleteStateCapacityRef: DeleteStateCapacityRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+deleteStateCapacity(dc: DataConnect, vars: DeleteStateCapacityVariables): MutationPromise<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+
+interface DeleteStateCapacityRef {
+  ...
+  (dc: DataConnect, vars: DeleteStateCapacityVariables): MutationRef<DeleteStateCapacityData, DeleteStateCapacityVariables>;
+}
+export const deleteStateCapacityRef: DeleteStateCapacityRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteStateCapacityRef:
+```typescript
+const name = deleteStateCapacityRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `DeleteStateCapacity` mutation requires an argument of type `DeleteStateCapacityVariables`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface DeleteStateCapacityVariables {
+  id: UUIDString;
+}
+```
+### Return Type
+Recall that executing the `DeleteStateCapacity` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `DeleteStateCapacityData`, which is defined in [dataconnect-generated/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface DeleteStateCapacityData {
+  providerStateCapacity_delete?: ProviderStateCapacity_Key | null;
+}
+```
+### Using `DeleteStateCapacity`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, deleteStateCapacity, DeleteStateCapacityVariables } from '@dataconnect/generated';
+
+// The `DeleteStateCapacity` mutation requires an argument of type `DeleteStateCapacityVariables`:
+const deleteStateCapacityVars: DeleteStateCapacityVariables = {
+  id: ..., 
+};
+
+// Call the `deleteStateCapacity()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await deleteStateCapacity(deleteStateCapacityVars);
+// Variables can be defined inline as well.
+const { data } = await deleteStateCapacity({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await deleteStateCapacity(dataConnect, deleteStateCapacityVars);
+
+console.log(data.providerStateCapacity_delete);
+
+// Or, you can use the `Promise` API.
+deleteStateCapacity(deleteStateCapacityVars).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacity_delete);
+});
+```
+
+### Using `DeleteStateCapacity`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, deleteStateCapacityRef, DeleteStateCapacityVariables } from '@dataconnect/generated';
+
+// The `DeleteStateCapacity` mutation requires an argument of type `DeleteStateCapacityVariables`:
+const deleteStateCapacityVars: DeleteStateCapacityVariables = {
+  id: ..., 
+};
+
+// Call the `deleteStateCapacityRef()` function to get a reference to the mutation.
+const ref = deleteStateCapacityRef(deleteStateCapacityVars);
+// Variables can be defined inline as well.
+const ref = deleteStateCapacityRef({ id: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = deleteStateCapacityRef(dataConnect, deleteStateCapacityVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.providerStateCapacity_delete);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.providerStateCapacity_delete);
 });
 ```
 

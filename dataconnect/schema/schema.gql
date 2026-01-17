@@ -427,3 +427,16 @@ type DocumentShare @table {
   purpose: String
   createdAt: Timestamp!
 }
+
+# Per-state capacity for physicians
+type ProviderStateCapacity @table {
+  id: UUID! @default(expr: "uuidV4()")
+  provider: User!  # Link to the physician user
+  state: State!
+  maxNpCapacity: Int!
+  currentNpCount: Int! @default(expr: "0")
+  isAccepting: Boolean! @default(expr: "true")
+  notes: String
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp
+}

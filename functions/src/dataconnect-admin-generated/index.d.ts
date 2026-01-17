@@ -121,15 +121,22 @@ export interface CreateConversationVariables {
   agreementId?: UUIDString | null;
 }
 
+export interface CreateDirectoryMatchByPhysicianData {
+  directoryMatch_insert: DirectoryMatch_Key;
+}
+
+export interface CreateDirectoryMatchByPhysicianVariables {
+  targetNpId: string;
+  stateId: UUIDString;
+}
+
 export interface CreateDirectoryMatchData {
   directoryMatch_insert: DirectoryMatch_Key;
 }
 
 export interface CreateDirectoryMatchVariables {
-  requestingUserId: string;
-  targetUserId: string;
+  targetPhysicianId: string;
   stateId: UUIDString;
-  initiatedBy: string;
 }
 
 export interface CreateLicenseData {
@@ -145,6 +152,20 @@ export interface CreateLicenseVariables {
   verificationStatus: string;
   supervisedHoursInState?: number | null;
   supervisedYearsInState?: number | null;
+}
+
+export interface CreateMediaData {
+  media_insert: Media_Key;
+}
+
+export interface CreateMediaVariables {
+  mediaId: string;
+  mediaType: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  containsPhi: boolean;
 }
 
 export interface CreateMessageAuditLogData {
@@ -163,7 +184,6 @@ export interface CreateNpDirectoryData {
 }
 
 export interface CreateNpDirectoryVariables {
-  userId: string;
   seekingStates: string;
   licensedStates: string;
   specialtyType: string;
@@ -176,13 +196,20 @@ export interface CreatePhysicianDirectoryData {
 }
 
 export interface CreatePhysicianDirectoryVariables {
-  userId: string;
   availableStates: string;
   specialtyType: string;
   maxNPs: number;
   currentNPCount: number;
   availableForNewNPs: boolean;
   supervisionModel: string;
+}
+
+export interface DeleteStateCapacityData {
+  providerStateCapacity_delete?: ProviderStateCapacity_Key | null;
+}
+
+export interface DeleteStateCapacityVariables {
+  id: UUIDString;
 }
 
 export interface DirectoryMatch_Key {
@@ -677,12 +704,15 @@ export interface GetMyLicensesData {
     issueDate: DateString;
     expirationDate: DateString;
     verificationStatus: string;
+    verificationDate?: TimestampString | null;
     fpaStatus?: string | null;
     rxAuthorityStatus?: string | null;
     state: {
+      id: UUIDString;
       stateCode: string;
       stateName: string;
-    };
+      licenseVerificationUrl?: string | null;
+    } & State_Key;
   } & License_Key)[];
 }
 
@@ -694,6 +724,42 @@ export interface GetMyProfileData {
     createdAt: TimestampString;
     updatedAt?: TimestampString | null;
   };
+}
+
+export interface GetMyStateCapacitiesData {
+  providerStateCapacities: ({
+    id: UUIDString;
+    state: {
+      id: UUIDString;
+      stateCode: string;
+      stateName: string;
+    } & State_Key;
+      maxNpCapacity: number;
+      currentNpCount: number;
+      isAccepting: boolean;
+      notes?: string | null;
+      createdAt: TimestampString;
+      updatedAt?: TimestampString | null;
+  } & ProviderStateCapacity_Key)[];
+}
+
+export interface GetPhysicianStateCapacitiesData {
+  providerStateCapacities: ({
+    id: UUIDString;
+    state: {
+      id: UUIDString;
+      stateCode: string;
+      stateName: string;
+    } & State_Key;
+      maxNpCapacity: number;
+      currentNpCount: number;
+      isAccepting: boolean;
+      notes?: string | null;
+  } & ProviderStateCapacity_Key)[];
+}
+
+export interface GetPhysicianStateCapacitiesVariables {
+  physicianId: string;
 }
 
 export interface GetProviderDirectoryProfileData {
@@ -900,6 +966,12 @@ export interface ListStatesData {
     stateCode: string;
     stateName: string;
     fpaAvailable: boolean;
+    fpaAutomaticWithLicense?: boolean | null;
+    fpaRequiresApplication?: boolean | null;
+    fpaHoursRequired?: number | null;
+    fpaYearsRequired?: number | null;
+    fpaWithinStateRequired?: boolean | null;
+    fpaCmeHoursRequired?: number | null;
     paVerificationRequired: boolean;
     cpaRequired?: boolean | null;
     boardFilingRequired?: boolean | null;
@@ -956,6 +1028,11 @@ export interface NpDirectory_Key {
 export interface ProviderDirectory_Key {
   physicianId: string;
   __typename?: 'ProviderDirectory_Key';
+}
+
+export interface ProviderStateCapacity_Key {
+  id: UUIDString;
+  __typename?: 'ProviderStateCapacity_Key';
 }
 
 export interface QualityAssuranceMeeting_Key {
@@ -1027,6 +1104,36 @@ export interface SearchPhysiciansData {
 }
 
 export interface SearchPhysiciansVariables {
+  stateCode?: string | null;
+  specialtyType?: string | null;
+  availableForNewNPs?: boolean | null;
+}
+
+export interface SearchPhysiciansWithStateCapacityData {
+  providerDirectories: ({
+    physician: {
+      id: string;
+      displayName?: string | null;
+      email: string;
+    } & User_Key;
+      isActive: boolean;
+      availableStates: string;
+      primarySpecialty: string;
+      secondarySpecialties?: string | null;
+      totalNpCapacity?: number | null;
+      currentNpCount?: number | null;
+      availableSpots?: number | null;
+      supervisionModel: string;
+      hourlyRate?: number | null;
+      revenueSharePercentage?: number | null;
+      yearsSupervising?: number | null;
+      responseTime?: string | null;
+      badges?: string | null;
+      isPremiumPhysician?: boolean | null;
+  })[];
+}
+
+export interface SearchPhysiciansWithStateCapacityVariables {
   stateCode?: string | null;
   specialtyType?: string | null;
   availableForNewNPs?: boolean | null;
@@ -1171,7 +1278,6 @@ export interface UpdateNpDirectoryProfileData {
 }
 
 export interface UpdateNpDirectoryProfileVariables {
-  userId: string;
   isActive?: boolean | null;
   profileVisibility?: string | null;
   seekingStates?: string | null;
@@ -1187,7 +1293,6 @@ export interface UpdatePhysicianDirectoryProfileData {
 }
 
 export interface UpdatePhysicianDirectoryProfileVariables {
-  userId: string;
   availableForNewNPs?: boolean | null;
   maxNPs?: number | null;
   availableSpots?: number | null;
@@ -1199,6 +1304,18 @@ export interface UpdatePhysicianDirectoryProfileVariables {
   supervisionModel?: string | null;
   hourlyRate?: number | null;
   revenueSharePercentage?: number | null;
+}
+
+export interface UpsertStateCapacityData {
+  providerStateCapacity_upsert: ProviderStateCapacity_Key;
+}
+
+export interface UpsertStateCapacityVariables {
+  stateId: UUIDString;
+  maxNpCapacity: number;
+  currentNpCount: number;
+  isAccepting: boolean;
+  notes?: string | null;
 }
 
 export interface UpsertUserProfileData {
@@ -1271,19 +1388,24 @@ export function createNpDirectory(dc: DataConnect, vars: CreateNpDirectoryVariab
 export function createNpDirectory(vars: CreateNpDirectoryVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateNpDirectoryData>>;
 
 /** Generated Node Admin SDK operation action function for the 'UpdatePhysicianDirectoryProfile' Mutation. Allow users to execute without passing in DataConnect. */
-export function updatePhysicianDirectoryProfile(dc: DataConnect, vars: UpdatePhysicianDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdatePhysicianDirectoryProfileData>>;
+export function updatePhysicianDirectoryProfile(dc: DataConnect, vars?: UpdatePhysicianDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdatePhysicianDirectoryProfileData>>;
 /** Generated Node Admin SDK operation action function for the 'UpdatePhysicianDirectoryProfile' Mutation. Allow users to pass in custom DataConnect instances. */
-export function updatePhysicianDirectoryProfile(vars: UpdatePhysicianDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdatePhysicianDirectoryProfileData>>;
+export function updatePhysicianDirectoryProfile(vars?: UpdatePhysicianDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdatePhysicianDirectoryProfileData>>;
 
 /** Generated Node Admin SDK operation action function for the 'UpdateNpDirectoryProfile' Mutation. Allow users to execute without passing in DataConnect. */
-export function updateNpDirectoryProfile(dc: DataConnect, vars: UpdateNpDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateNpDirectoryProfileData>>;
+export function updateNpDirectoryProfile(dc: DataConnect, vars?: UpdateNpDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateNpDirectoryProfileData>>;
 /** Generated Node Admin SDK operation action function for the 'UpdateNpDirectoryProfile' Mutation. Allow users to pass in custom DataConnect instances. */
-export function updateNpDirectoryProfile(vars: UpdateNpDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateNpDirectoryProfileData>>;
+export function updateNpDirectoryProfile(vars?: UpdateNpDirectoryProfileVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateNpDirectoryProfileData>>;
 
 /** Generated Node Admin SDK operation action function for the 'CreateDirectoryMatch' Mutation. Allow users to execute without passing in DataConnect. */
 export function createDirectoryMatch(dc: DataConnect, vars: CreateDirectoryMatchVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateDirectoryMatchData>>;
 /** Generated Node Admin SDK operation action function for the 'CreateDirectoryMatch' Mutation. Allow users to pass in custom DataConnect instances. */
 export function createDirectoryMatch(vars: CreateDirectoryMatchVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateDirectoryMatchData>>;
+
+/** Generated Node Admin SDK operation action function for the 'CreateDirectoryMatchByPhysician' Mutation. Allow users to execute without passing in DataConnect. */
+export function createDirectoryMatchByPhysician(dc: DataConnect, vars: CreateDirectoryMatchByPhysicianVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateDirectoryMatchByPhysicianData>>;
+/** Generated Node Admin SDK operation action function for the 'CreateDirectoryMatchByPhysician' Mutation. Allow users to pass in custom DataConnect instances. */
+export function createDirectoryMatchByPhysician(vars: CreateDirectoryMatchByPhysicianVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateDirectoryMatchByPhysicianData>>;
 
 /** Generated Node Admin SDK operation action function for the 'UpdateMatchStatus' Mutation. Allow users to execute without passing in DataConnect. */
 export function updateMatchStatus(dc: DataConnect, vars: UpdateMatchStatusVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateMatchStatusData>>;
@@ -1334,6 +1456,21 @@ export function completeQaMeeting(vars: CompleteQaMeetingVariables, options?: Op
 export function updateChartReviewDocument(dc: DataConnect, vars: UpdateChartReviewDocumentVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateChartReviewDocumentData>>;
 /** Generated Node Admin SDK operation action function for the 'UpdateChartReviewDocument' Mutation. Allow users to pass in custom DataConnect instances. */
 export function updateChartReviewDocument(vars: UpdateChartReviewDocumentVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpdateChartReviewDocumentData>>;
+
+/** Generated Node Admin SDK operation action function for the 'CreateMedia' Mutation. Allow users to execute without passing in DataConnect. */
+export function createMedia(dc: DataConnect, vars: CreateMediaVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateMediaData>>;
+/** Generated Node Admin SDK operation action function for the 'CreateMedia' Mutation. Allow users to pass in custom DataConnect instances. */
+export function createMedia(vars: CreateMediaVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<CreateMediaData>>;
+
+/** Generated Node Admin SDK operation action function for the 'UpsertStateCapacity' Mutation. Allow users to execute without passing in DataConnect. */
+export function upsertStateCapacity(dc: DataConnect, vars: UpsertStateCapacityVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpsertStateCapacityData>>;
+/** Generated Node Admin SDK operation action function for the 'UpsertStateCapacity' Mutation. Allow users to pass in custom DataConnect instances. */
+export function upsertStateCapacity(vars: UpsertStateCapacityVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<UpsertStateCapacityData>>;
+
+/** Generated Node Admin SDK operation action function for the 'DeleteStateCapacity' Mutation. Allow users to execute without passing in DataConnect. */
+export function deleteStateCapacity(dc: DataConnect, vars: DeleteStateCapacityVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<DeleteStateCapacityData>>;
+/** Generated Node Admin SDK operation action function for the 'DeleteStateCapacity' Mutation. Allow users to pass in custom DataConnect instances. */
+export function deleteStateCapacity(vars: DeleteStateCapacityVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<DeleteStateCapacityData>>;
 
 /** Generated Node Admin SDK operation action function for the 'ListStates' Query. Allow users to execute without passing in DataConnect. */
 export function listStates(dc: DataConnect, options?: OperationOptions): Promise<ExecuteOperationResponse<ListStatesData>>;
@@ -1459,6 +1596,21 @@ export function getActiveCpaCount(vars: GetActiveCpaCountVariables, options?: Op
 export function getStateRatio(dc: DataConnect, vars: GetStateRatioVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<GetStateRatioData>>;
 /** Generated Node Admin SDK operation action function for the 'GetStateRatio' Query. Allow users to pass in custom DataConnect instances. */
 export function getStateRatio(vars: GetStateRatioVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<GetStateRatioData>>;
+
+/** Generated Node Admin SDK operation action function for the 'GetMyStateCapacities' Query. Allow users to execute without passing in DataConnect. */
+export function getMyStateCapacities(dc: DataConnect, options?: OperationOptions): Promise<ExecuteOperationResponse<GetMyStateCapacitiesData>>;
+/** Generated Node Admin SDK operation action function for the 'GetMyStateCapacities' Query. Allow users to pass in custom DataConnect instances. */
+export function getMyStateCapacities(options?: OperationOptions): Promise<ExecuteOperationResponse<GetMyStateCapacitiesData>>;
+
+/** Generated Node Admin SDK operation action function for the 'GetPhysicianStateCapacities' Query. Allow users to execute without passing in DataConnect. */
+export function getPhysicianStateCapacities(dc: DataConnect, vars: GetPhysicianStateCapacitiesVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<GetPhysicianStateCapacitiesData>>;
+/** Generated Node Admin SDK operation action function for the 'GetPhysicianStateCapacities' Query. Allow users to pass in custom DataConnect instances. */
+export function getPhysicianStateCapacities(vars: GetPhysicianStateCapacitiesVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<GetPhysicianStateCapacitiesData>>;
+
+/** Generated Node Admin SDK operation action function for the 'SearchPhysiciansWithStateCapacity' Query. Allow users to execute without passing in DataConnect. */
+export function searchPhysiciansWithStateCapacity(dc: DataConnect, vars?: SearchPhysiciansWithStateCapacityVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<SearchPhysiciansWithStateCapacityData>>;
+/** Generated Node Admin SDK operation action function for the 'SearchPhysiciansWithStateCapacity' Query. Allow users to pass in custom DataConnect instances. */
+export function searchPhysiciansWithStateCapacity(vars?: SearchPhysiciansWithStateCapacityVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<SearchPhysiciansWithStateCapacityData>>;
 
 /** Generated Node Admin SDK operation action function for the 'SeedStates' Mutation. Allow users to execute without passing in DataConnect. */
 export function seedStates(dc: DataConnect, options?: OperationOptions): Promise<ExecuteOperationResponse<SeedStatesData>>;

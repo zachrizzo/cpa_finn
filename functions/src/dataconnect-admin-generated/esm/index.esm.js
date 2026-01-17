@@ -73,13 +73,13 @@ export function createNpDirectory(dcOrVarsOrOptions, varsOrOptions, options) {
 }
 
 export function updatePhysicianDirectoryProfile(dcOrVarsOrOptions, varsOrOptions, options) {
-  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, false);
   dcInstance.useGen(true);
   return dcInstance.executeMutation('UpdatePhysicianDirectoryProfile', inputVars, inputOpts);
 }
 
 export function updateNpDirectoryProfile(dcOrVarsOrOptions, varsOrOptions, options) {
-  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, false);
   dcInstance.useGen(true);
   return dcInstance.executeMutation('UpdateNPDirectoryProfile', inputVars, inputOpts);
 }
@@ -88,6 +88,12 @@ export function createDirectoryMatch(dcOrVarsOrOptions, varsOrOptions, options) 
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);
   return dcInstance.executeMutation('CreateDirectoryMatch', inputVars, inputOpts);
+}
+
+export function createDirectoryMatchByPhysician(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('CreateDirectoryMatchByPhysician', inputVars, inputOpts);
 }
 
 export function updateMatchStatus(dcOrVarsOrOptions, varsOrOptions, options) {
@@ -148,6 +154,24 @@ export function updateChartReviewDocument(dcOrVarsOrOptions, varsOrOptions, opti
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);
   return dcInstance.executeMutation('UpdateChartReviewDocument', inputVars, inputOpts);
+}
+
+export function createMedia(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('CreateMedia', inputVars, inputOpts);
+}
+
+export function upsertStateCapacity(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('UpsertStateCapacity', inputVars, inputOpts);
+}
+
+export function deleteStateCapacity(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('DeleteStateCapacity', inputVars, inputOpts);
 }
 
 export function listStates(dcOrOptions, options) {
@@ -298,6 +322,24 @@ export function getStateRatio(dcOrVarsOrOptions, varsOrOptions, options) {
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);
   return dcInstance.executeQuery('GetStateRatio', inputVars, inputOpts);
+}
+
+export function getMyStateCapacities(dcOrOptions, options) {
+  const { dc: dcInstance, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrOptions, options, undefined);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('GetMyStateCapacities', undefined, inputOpts);
+}
+
+export function getPhysicianStateCapacities(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('GetPhysicianStateCapacities', inputVars, inputOpts);
+}
+
+export function searchPhysiciansWithStateCapacity(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, false);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('SearchPhysiciansWithStateCapacity', inputVars, inputOpts);
 }
 
 export function seedStates(dcOrOptions, options) {
