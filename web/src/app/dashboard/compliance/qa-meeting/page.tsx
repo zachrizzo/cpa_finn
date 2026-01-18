@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle, Clock, Video, Phone, Users } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Phone, Users, Video, type LucideIcon } from "lucide-react";
+import { SuccessMessage, PageHeader, StateRequirementsCard, Tabs, Button } from "@/components";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { auth, getDc } from "@/lib/firebase";
-import {
-  getMyAgreements,
-  scheduleQaMeeting,
-  completeQaMeeting,
-  getQaMeetings,
-} from "@dataconnect/generated";
 import { toast } from "sonner";
+import { getDc } from "@/lib/firebase";
+import { formatDateTime, getDisplayName, getOtherPartyName, isDatePast } from "@/lib/format";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import {
+  completeQaMeeting,
+  getMyAgreements,
+  getQaMeetings,
+  scheduleQaMeeting,
+} from "@dataconnect/generated";
 
 const scheduleMeetingSchema = z.object({
   agreementId: z.string().min(1, "Please select a CPA"),
@@ -74,16 +77,15 @@ interface QAMeeting {
   };
 }
 
-export default function QAMeetingPage() {
+export default function QAMeetingPage(): React.ReactNode {
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [qaMeetings, setQaMeetings] = useState<QAMeeting[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedAgreement, setSelectedAgreement] = useState<Agreement | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"schedule" | "complete">("schedule");
-  // const [selectedMeeting, setSelectedMeeting] = useState<QAMeeting | null>(null);
   const searchParams = useSearchParams();
+  const currentUserId = useCurrentUserId();
 
   const scheduleForm = useForm<ScheduleMeetingFormData>({
     resolver: zodResolver(scheduleMeetingSchema),
@@ -94,15 +96,6 @@ export default function QAMeetingPage() {
   });
 
   const selectedAgreementId = scheduleForm.watch("agreementId");
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     async function fetchAgreements() {
@@ -215,13 +208,11 @@ export default function QAMeetingPage() {
         setQaMeetings(data.qualityAssuranceMeetings as unknown as QAMeeting[]);
       }
 
-      // Reset form
       completeForm.reset({
         meetingId: "",
         notes: "",
         meetingDocumentUrl: "",
       });
-      // setSelectedMeeting(null);
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -232,89 +223,39 @@ export default function QAMeetingPage() {
     }
   };
 
-  const getOtherParty = (agreement: Agreement) => {
-    if (!currentUserId) return "";
-    if (agreement.npLicense.user.id === currentUserId) {
-      return agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email;
-    }
-    return agreement.npLicense.user.displayName || agreement.npLicense.user.email;
+  const MEETING_TYPE_ICONS: Record<string, LucideIcon> = {
+    video: Video,
+    phone: Phone,
+    "in-person": Users,
   };
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return {
-      date: date.toLocaleDateString(),
-      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-  };
-
-  const getMeetingTypeIcon = (type: string | null) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-4 w-4" />;
-      case "phone":
-        return <Phone className="h-4 w-4" />;
-      case "in-person":
-        return <Users className="h-4 w-4" />;
-      default:
-        return <Calendar className="h-4 w-4" />;
-    }
-  };
-
-  const isMeetingPast = (meetingDate: string) => {
-    return new Date(meetingDate) < new Date();
-  };
+  function getMeetingTypeIcon(type: string | null): React.ReactNode {
+    const Icon = type ? MEETING_TYPE_ICONS[type] ?? Calendar : Calendar;
+    return <Icon className="h-4 w-4" />;
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">QA Meetings</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Schedule and track quality assurance meetings for your collaboration agreements
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="QA Meetings"
+        description="Schedule and track quality assurance meetings for your collaboration agreements"
+      />
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab("schedule")}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
-              activeTab === "schedule"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
-          >
-            Schedule Meeting
-          </button>
-          <button
-            onClick={() => setActiveTab("complete")}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
-              activeTab === "complete"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
-          >
-            Complete Meeting
-          </button>
-        </nav>
-      </div>
+      <Tabs
+        tabs={[
+          { id: "schedule", label: "Schedule Meeting" },
+          { id: "complete", label: "Complete Meeting" },
+        ]}
+        activeTab={activeTab}
+        onChange={(tab) => setActiveTab(tab as "schedule" | "complete")}
+      />
 
       {/* Schedule Meeting Form */}
       {activeTab === "schedule" && (
         <div className="rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Schedule New QA Meeting</h2>
 
-          {successMessage && (
-            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <p className="text-sm font-medium text-green-800">{successMessage}</p>
-              </div>
-            </div>
-          )}
+          {successMessage && <SuccessMessage message={successMessage} />}
 
           <form onSubmit={scheduleForm.handleSubmit(onScheduleSubmit)} className="space-y-4">
             {/* Select CPA */}
@@ -330,7 +271,7 @@ export default function QAMeetingPage() {
                 <option value="">Select a CPA...</option>
                 {agreements.map((agreement) => (
                   <option key={agreement.id} value={agreement.id}>
-                    {agreement.state.stateCode} - {getOtherParty(agreement)}
+                    {agreement.state.stateCode} - {getOtherPartyName(agreement, currentUserId)}
                   </option>
                 ))}
               </select>
@@ -341,20 +282,13 @@ export default function QAMeetingPage() {
 
             {/* State Requirements Display */}
             {selectedAgreement && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">State Requirements - {selectedAgreement.state.stateCode}</h3>
-                <div className="text-sm text-blue-700 space-y-1">
-                  {selectedAgreement.state.qaMeetingFrequency && (
-                    <p>Frequency: {selectedAgreement.state.qaMeetingFrequency}</p>
-                  )}
-                  {selectedAgreement.state.qaMeetingDurationMonths && (
-                    <p>Duration: Every {selectedAgreement.state.qaMeetingDurationMonths} months</p>
-                  )}
-                  {!selectedAgreement.state.qaMeetingFrequency && (
-                    <p>No specific state requirements</p>
-                  )}
-                </div>
-              </div>
+              <StateRequirementsCard
+                stateCode={selectedAgreement.state.stateCode}
+                requirements={[
+                  { label: "Frequency", value: selectedAgreement.state.qaMeetingFrequency },
+                  { label: "Duration", value: selectedAgreement.state.qaMeetingDurationMonths ? `Every ${selectedAgreement.state.qaMeetingDurationMonths} months` : null },
+                ]}
+              />
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -427,14 +361,9 @@ export default function QAMeetingPage() {
 
             {/* Submit Button */}
             <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Calendar className="h-4 w-4" />
+              <Button type="submit" icon={Calendar} loading={submitting}>
                 {submitting ? "Scheduling..." : "Schedule Meeting"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -445,14 +374,7 @@ export default function QAMeetingPage() {
         <div className="rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Complete Meeting</h2>
 
-          {successMessage && (
-            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <p className="text-sm font-medium text-green-800">{successMessage}</p>
-              </div>
-            </div>
-          )}
+          {successMessage && <SuccessMessage message={successMessage} />}
 
           <form onSubmit={completeForm.handleSubmit(onCompleteSubmit)} className="space-y-4">
             {/* Select Meeting */}
@@ -465,7 +387,6 @@ export default function QAMeetingPage() {
                 {...completeForm.register("meetingId")}
                 onChange={(e) => {
                   const meeting = qaMeetings.find(m => m.id === e.target.value);
-                  // setSelectedMeeting(meeting || null);
                   if (meeting?.notes) {
                     completeForm.setValue("notes", meeting.notes);
                   }
@@ -474,7 +395,7 @@ export default function QAMeetingPage() {
               >
                 <option value="">Select a meeting...</option>
                 {qaMeetings
-                  .filter(meeting => isMeetingPast(meeting.meetingDate))
+                  .filter(meeting => isDatePast(meeting.meetingDate))
                   .map((meeting) => {
                     const { date, time } = formatDateTime(meeting.meetingDate);
                     return (
@@ -523,14 +444,9 @@ export default function QAMeetingPage() {
 
             {/* Submit Button */}
             <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <CheckCircle className="h-4 w-4" />
+              <Button type="submit" icon={CheckCircle} loading={submitting}>
                 {submitting ? "Saving..." : "Save Meeting Notes"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -582,7 +498,7 @@ export default function QAMeetingPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {qaMeetings.map((meeting) => {
                   const { date, time } = formatDateTime(meeting.meetingDate);
-                  const isPast = isMeetingPast(meeting.meetingDate);
+                  const isPast = isDatePast(meeting.meetingDate);
                   const hasNotes = meeting.notes && meeting.notes.length > 0;
 
                   return (
@@ -600,7 +516,7 @@ export default function QAMeetingPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {meeting.host.displayName || meeting.host.email}
+                        {getDisplayName(meeting.host)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {isPast ? (
@@ -658,7 +574,7 @@ export default function QAMeetingPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Upcoming Meetings</span>
               <span className="text-sm font-medium text-gray-900">
-                {qaMeetings.filter(m => !isMeetingPast(m.meetingDate)).length}
+                {qaMeetings.filter(m => !isDatePast(m.meetingDate)).length}
               </span>
             </div>
             {selectedAgreement.state.qaMeetingFrequency && (

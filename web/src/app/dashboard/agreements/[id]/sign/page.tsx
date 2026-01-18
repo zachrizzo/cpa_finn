@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, X, FileSignature, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, FileSignature, Loader2, X } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
-import { auth, getDc, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { getAgreementById, signAgreement, createMedia } from "@dataconnect/generated";
 import { toast } from "sonner";
+import { getDc, storage } from "@/lib/firebase";
+import { getDisplayName } from "@/lib/format";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { LoadingState, EmptyState, Button } from "@/components";
+import { createMedia, getAgreementById, signAgreement } from "@dataconnect/generated";
 
 interface Agreement {
   id: string;
@@ -35,28 +38,19 @@ interface Agreement {
   };
 }
 
-export default function SignAgreementPage() {
+export default function SignAgreementPage(): React.ReactNode {
   const params = useParams();
   const router = useRouter();
   const agreementId = params.id as string;
   const signatureRef = useRef<SignatureCanvas>(null);
+  const currentUserId = useCurrentUserId();
 
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [signatureEmpty, setSignatureEmpty] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     async function fetchAgreement() {
@@ -195,19 +189,11 @@ export default function SignAgreementPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Loading agreement...</div>
-      </div>
-    );
+    return <LoadingState message="Loading agreement..." />;
   }
 
   if (!agreement) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Agreement not found</div>
-      </div>
-    );
+    return <EmptyState icon={FileSignature} title="Agreement not found" />;
   }
 
   return (
@@ -243,10 +229,10 @@ export default function SignAgreementPage() {
           </p>
           <ul>
             <li>
-              <strong>Nurse Practitioner:</strong> {agreement.npLicense.user.displayName || agreement.npLicense.user.email}
+              <strong>Nurse Practitioner:</strong> {getDisplayName(agreement.npLicense.user)}
             </li>
             <li>
-              <strong>Collaborating Physician:</strong> {agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email}
+              <strong>Collaborating Physician:</strong> {getDisplayName(agreement.physicianLicense.user)}
             </li>
             <li>
               <strong>State:</strong> {agreement.state.stateName} ({agreement.state.stateCode})
@@ -336,30 +322,21 @@ export default function SignAgreementPage() {
 
       {/* Action Buttons */}
       <div className="flex items-center justify-between gap-4 pb-8">
-        <button
+        <Button
+          variant="outline"
+          icon={ArrowLeft}
           onClick={() => router.push(`/dashboard/agreements/${agreementId}`)}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
         >
-          <ArrowLeft className="h-4 w-4" />
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
+          icon={signing ? Loader2 : Check}
           onClick={handleSubmit}
           disabled={signing || signatureEmpty || !acknowledged}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          loading={signing}
         >
-          {signing ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {uploadProgress || "Processing..."}
-            </>
-          ) : (
-            <>
-              <Check className="h-4 w-4" />
-              Sign & Submit
-            </>
-          )}
-        </button>
+          {signing ? (uploadProgress || "Processing...") : "Sign & Submit"}
+        </Button>
       </div>
     </div>
   );

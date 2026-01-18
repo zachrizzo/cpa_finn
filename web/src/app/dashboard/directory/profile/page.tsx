@@ -19,6 +19,8 @@ import {
     listStates,
 } from "@dataconnect/generated";
 import { toast } from "sonner";
+import { LoadingState, PageHeader, ErrorMessage, SuccessMessage, FormActions, StateCapacityTable } from "@/components";
+import { MEDICAL_SPECIALTIES, INPUT_CLASS } from "@/lib/utils";
 
 const physicianProfileSchema = z.object({
     availableStates: z.string().min(1, "Select at least one state"),
@@ -88,19 +90,6 @@ export default function DirectoryProfilePage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const router = useRouter();
-
-    const specialties = [
-        "Family Medicine",
-        "Internal Medicine",
-        "Psychiatry",
-        "Pediatrics",
-        "Emergency Medicine",
-        "Urgent Care",
-        "Cardiology",
-        "Dermatology",
-        "Oncology",
-        "Other",
-    ];
 
     const physicianForm = useForm<PhysicianProfileFormValues>({
         resolver: zodResolver(physicianProfileSchema),
@@ -397,27 +386,20 @@ export default function DirectoryProfilePage() {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <p className="text-gray-500">Loading profile...</p>
-            </div>
-        );
+        return <LoadingState message="Loading profile..." />;
     }
 
     const { totalMaxNPs, totalCurrentNPs, availableSpots } = calculateTotals();
+    const description = userRole === "physician"
+        ? "Set up your profile to connect with NPs looking for collaboration."
+        : "Set up your profile to find physicians for CPA agreements.";
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
-            <div className="space-y-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                    {existingProfile ? "Edit" : "Create"} Directory Profile
-                </h1>
-                <p className="text-gray-500">
-                    {userRole === "physician"
-                        ? "Set up your profile to connect with NPs looking for collaboration."
-                        : "Set up your profile to find physicians for CPA agreements."}
-                </p>
-            </div>
+            <PageHeader
+                title={`${existingProfile ? "Edit" : "Create"} Directory Profile`}
+                description={description}
+            />
 
             <div className="bg-white p-6 shadow rounded-lg border">
                 {userRole === "physician" ? (
@@ -427,7 +409,7 @@ export default function DirectoryProfilePage() {
                             <select
                                 multiple
                                 {...physicianForm.register("availableStates")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                                 size={5}
                             >
                                 {licenses.map((license) => (
@@ -447,10 +429,10 @@ export default function DirectoryProfilePage() {
                             <label className="block text-sm font-medium text-gray-700">Primary Specialty</label>
                             <select
                                 {...physicianForm.register("specialtyType")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                             >
                                 <option value="">Select Specialty</option>
-                                {specialties.map((specialty) => (
+                                {MEDICAL_SPECIALTIES.map((specialty) => (
                                     <option key={specialty} value={specialty}>
                                         {specialty}
                                     </option>
@@ -464,124 +446,19 @@ export default function DirectoryProfilePage() {
                         </div>
 
                         {/* Per-State Capacity Grid */}
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <label className="block text-sm font-medium text-gray-700">
-                                    Per-State NP Capacity
-                                </label>
-                                <div className="text-sm text-gray-500">
-                                    Total: {totalCurrentNPs}/{totalMaxNPs} NPs ({availableSpots} spots available)
-                                </div>
-                            </div>
-
-                            {stateCapacities.length === 0 ? (
-                                <p className="text-sm text-gray-500 italic">
-                                    Add licenses to configure per-state capacity
-                                </p>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    State
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Max NPs
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Current
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Accepting
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Notes
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {stateCapacities.map((capacity) => (
-                                                <tr key={capacity.stateCode} className={!capacity.isAccepting ? "bg-gray-50" : ""}>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        <div className="text-sm font-medium text-gray-900">
-                                                            {capacity.stateCode}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            {capacity.stateName}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            value={capacity.maxNpCapacity}
-                                                            onChange={(e) => updateStateCapacity(
-                                                                capacity.stateCode,
-                                                                "maxNpCapacity",
-                                                                parseInt(e.target.value) || 0
-                                                            )}
-                                                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                                                            disabled={!capacity.isAccepting}
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={capacity.maxNpCapacity}
-                                                            value={capacity.currentNpCount}
-                                                            onChange={(e) => updateStateCapacity(
-                                                                capacity.stateCode,
-                                                                "currentNpCount",
-                                                                parseInt(e.target.value) || 0
-                                                            )}
-                                                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                                                            disabled={!capacity.isAccepting}
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={capacity.isAccepting}
-                                                            onChange={(e) => updateStateCapacity(
-                                                                capacity.stateCode,
-                                                                "isAccepting",
-                                                                e.target.checked
-                                                            )}
-                                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <input
-                                                            type="text"
-                                                            value={capacity.notes}
-                                                            onChange={(e) => updateStateCapacity(
-                                                                capacity.stateCode,
-                                                                "notes",
-                                                                e.target.value
-                                                            )}
-                                                            placeholder="Optional notes..."
-                                                            className="w-full max-w-xs rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                            <p className="text-xs text-gray-500">
-                                Set capacity per state. Uncheck &quot;Accepting&quot; to stop receiving requests for a specific state.
-                            </p>
-                        </div>
+                        <StateCapacityTable
+                            capacities={stateCapacities}
+                            onUpdate={updateStateCapacity}
+                            totalMaxNPs={totalMaxNPs}
+                            totalCurrentNPs={totalCurrentNPs}
+                            availableSpots={availableSpots}
+                        />
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Supervision Model</label>
                             <select
                                 {...physicianForm.register("supervisionModel")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                             >
                                 <option value="hourly">Hourly Rate</option>
                                 <option value="revenue_share">Revenue Share</option>
@@ -597,7 +474,7 @@ export default function DirectoryProfilePage() {
                                     type="number"
                                     step="0.01"
                                     {...physicianForm.register("hourlyRate", { valueAsNumber: true })}
-                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                    className={INPUT_CLASS}
                                 />
                             </div>
 
@@ -607,7 +484,7 @@ export default function DirectoryProfilePage() {
                                     type="number"
                                     step="0.1"
                                     {...physicianForm.register("revenueSharePercentage", { valueAsNumber: true })}
-                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                    className={INPUT_CLASS}
                                 />
                             </div>
                         </div>
@@ -623,32 +500,14 @@ export default function DirectoryProfilePage() {
                             </label>
                         </div>
 
-                        {error && (
-                            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>
-                        )}
+                        {error && <ErrorMessage message={error} />}
+                        {success && <SuccessMessage message="Profile saved successfully! Redirecting..." />}
 
-                        {success && (
-                            <div className="rounded-md bg-green-50 p-4 text-sm text-green-700">
-                                Profile saved successfully! Redirecting...
-                            </div>
-                        )}
-
-                        <div className="flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => router.back()}
-                                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {submitting ? "Saving..." : "Save Profile"}
-                            </button>
-                        </div>
+                        <FormActions
+                            onCancel={() => router.back()}
+                            isSubmitting={submitting}
+                            submitLabel="Save Profile"
+                        />
                     </form>
                 ) : (
                     <form onSubmit={npForm.handleSubmit(onSubmitNP)} className="space-y-6">
@@ -657,7 +516,7 @@ export default function DirectoryProfilePage() {
                             <select
                                 multiple
                                 {...npForm.register("seekingStates")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                                 size={5}
                             >
                                 {licenses.map((license) => (
@@ -676,7 +535,7 @@ export default function DirectoryProfilePage() {
                             <select
                                 multiple
                                 {...npForm.register("licensedStates")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                                 size={5}
                             >
                                 {licenses.map((license) => (
@@ -694,10 +553,10 @@ export default function DirectoryProfilePage() {
                             <label className="block text-sm font-medium text-gray-700">Primary Specialty</label>
                             <select
                                 {...npForm.register("specialtyType")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                             >
                                 <option value="">Select Specialty</option>
-                                {specialties.map((specialty) => (
+                                {MEDICAL_SPECIALTIES.map((specialty) => (
                                     <option key={specialty} value={specialty}>
                                         {specialty}
                                     </option>
@@ -724,7 +583,7 @@ export default function DirectoryProfilePage() {
                             <input
                                 type="number"
                                 {...npForm.register("hoursPerWeekAvailable", { valueAsNumber: true })}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                             />
                         </div>
 
@@ -732,7 +591,7 @@ export default function DirectoryProfilePage() {
                             <label className="block text-sm font-medium text-gray-700">Preferred Compensation Model</label>
                             <select
                                 {...npForm.register("preferredCompensationModel")}
-                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                                className={INPUT_CLASS}
                             >
                                 <option value="">Select Model</option>
                                 <option value="hourly">Hourly</option>
@@ -753,32 +612,14 @@ export default function DirectoryProfilePage() {
                             </label>
                         </div>
 
-                        {error && (
-                            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>
-                        )}
+                        {error && <ErrorMessage message={error} />}
+                        {success && <SuccessMessage message="Profile saved successfully! Redirecting..." />}
 
-                        {success && (
-                            <div className="rounded-md bg-green-50 p-4 text-sm text-green-700">
-                                Profile saved successfully! Redirecting...
-                            </div>
-                        )}
-
-                        <div className="flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => router.back()}
-                                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {submitting ? "Saving..." : "Save Profile"}
-                            </button>
-                        </div>
+                        <FormActions
+                            onCancel={() => router.back()}
+                            isSubmitting={submitting}
+                            submitLabel="Save Profile"
+                        />
                     </form>
                 )}
             </div>

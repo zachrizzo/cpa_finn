@@ -3,107 +3,26 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle, Clock, AlertTriangle, User, Building, Calendar, FileSignature } from "lucide-react";
-import { auth, getDc } from "@/lib/firebase";
+import { getDc } from "@/lib/firebase";
 import { getAgreementById, getAgreementSignatures, activateAgreement } from "@dataconnect/generated";
 import { toast } from "sonner";
-
-interface Agreement {
-  id: string;
-  status: string;
-  isActive: boolean;
-  docusignUrl: string | null;
-  boardFilingDate: string | null;
-  boardApprovalDate: string | null;
-  terminationDate: string | null;
-  terminationReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  isBoardReported: boolean | null;
-  boardReportingStatus: string | null;
-  boardReportingInstructions: string | null;
-  terminationResponsibility: string | null;
-  npLicense: {
-    id: string;
-    licenseNumber: string;
-    licenseType: string;
-    issueDate: string;
-    expirationDate: string;
-    verificationStatus: string;
-    user: {
-      id: string;
-      displayName: string | null;
-      email: string;
-      role: string | null;
-    };
-  };
-  physicianLicense: {
-    id: string;
-    licenseNumber: string;
-    licenseType: string;
-    issueDate: string;
-    expirationDate: string;
-    verificationStatus: string;
-    user: {
-      id: string;
-      displayName: string | null;
-      email: string;
-      role: string | null;
-    };
-  };
-  state: {
-    id: string;
-    stateCode: string;
-    stateName: string;
-    cpaRequired: boolean | null;
-    physicianNpRatio: string | null;
-    ratioIsFte: boolean | null;
-    chartReviewFrequency: string | null;
-    chartReviewPercentage: number | null;
-    chartReviewControlledSubstancesOnly: boolean | null;
-    qaMeetingFrequency: string | null;
-    qaMeetingDurationMonths: number | null;
-    boardFilingRequired: boolean | null;
-    boardFilingWho: string | null;
-    boardFilingFee: number | null;
-    boardPortalUrl: string | null;
-    cpaRenewalFrequency: string | null;
-    cpaAutoRenews: boolean | null;
-    complianceNotes: string | null;
-  };
-}
-
-interface Signature {
-  signer: {
-    id: string;
-    displayName: string | null;
-    email: string;
-    role: string | null;
-  };
-  signedAt: string;
-  signatureMethod: string;
-  ipAddress: string | null;
-  createdAt: string;
-}
+import { useAuth } from "@/providers/AuthProvider";
+import { formatDate } from "@/lib/format";
+import { LoadingState } from "@/components";
+import type { Agreement, Signature } from "@/types";
 
 export default function AgreementDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const agreementId = params.id as string;
 
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [loading, setLoading] = useState(true);
   const [activating, setActivating] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const currentUserId = user?.uid ?? null;
 
   useEffect(() => {
     async function fetchAgreement() {
@@ -112,7 +31,6 @@ export default function AgreementDetailPage() {
         const agreementData = data.collaborationAgreement as Agreement;
         setAgreement(agreementData);
 
-        // Fetch signatures
         const sigData = await getAgreementSignatures(getDc(), {
           npUserId: agreementData.npLicense.user.id,
           physicianUserId: agreementData.physicianLicense.user.id,
@@ -130,24 +48,17 @@ export default function AgreementDetailPage() {
     }
   }, [agreementId, currentUserId]);
 
-  const hasUserSigned = () => {
-    if (!currentUserId) return false;
-    return signatures.some((sig) => sig.signer.id === currentUserId);
-  };
+  function hasUserIdSigned(userId: string | null): boolean {
+    if (!userId) return false;
+    return signatures.some((sig) => sig.signer.id === userId);
+  }
 
-  const hasNPSigned = () => {
-    if (!agreement) return false;
-    return signatures.some((sig) => sig.signer.id === agreement.npLicense.user.id);
-  };
+  const hasUserSigned = hasUserIdSigned(currentUserId);
+  const hasNPSigned = agreement ? hasUserIdSigned(agreement.npLicense.user.id) : false;
+  const hasPhysicianSigned = agreement ? hasUserIdSigned(agreement.physicianLicense.user.id) : false;
+  const bothPartiesSigned = hasNPSigned && hasPhysicianSigned;
 
-  const hasPhysicianSigned = () => {
-    if (!agreement) return false;
-    return signatures.some((sig) => sig.signer.id === agreement.physicianLicense.user.id);
-  };
-
-  const bothPartiesSigned = hasNPSigned() && hasPhysicianSigned();
-
-  const handleActivate = async () => {
+  async function handleActivate(): Promise<void> {
     if (!bothPartiesSigned) {
       toast.error("Both parties must sign before activating the agreement.");
       return;
@@ -158,7 +69,6 @@ export default function AgreementDetailPage() {
       await activateAgreement(getDc(), { agreementId });
       toast.success("Agreement activated successfully!");
 
-      // Refresh agreement data
       const { data } = await getAgreementById(getDc(), { agreementId });
       setAgreement(data.collaborationAgreement as Agreement);
     } catch {
@@ -166,19 +76,10 @@ export default function AgreementDetailPage() {
     } finally {
       setActivating(false);
     }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString();
-  };
+  }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Loading agreement...</div>
-      </div>
-    );
+    return <LoadingState message="Loading agreement..." />;
   }
 
   if (!agreement) {
@@ -237,7 +138,7 @@ export default function AgreementDetailPage() {
         </div>
       )}
 
-      {!hasUserSigned() && !agreement.isActive && (
+      {!hasUserSigned && !agreement.isActive && (
         <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
@@ -260,92 +161,20 @@ export default function AgreementDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* NP Information */}
-        <div className="rounded-md border bg-white shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="rounded-full bg-blue-100 p-2">
-              <User className="h-5 w-5 text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">Nurse Practitioner</h2>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Name</p>
-              <p className="text-sm text-gray-900">
-                {agreement.npLicense.user.displayName || agreement.npLicense.user.email}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Email</p>
-              <p className="text-sm text-gray-900">{agreement.npLicense.user.email}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">License Number</p>
-              <p className="text-sm text-gray-900">{agreement.npLicense.licenseNumber}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">License Type</p>
-              <p className="text-sm text-gray-900">{agreement.npLicense.licenseType}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Signature Status</p>
-              {hasNPSigned() ? (
-                <span className="inline-flex items-center gap-1 text-sm text-green-700">
-                  <CheckCircle className="h-4 w-4" />
-                  Signed
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-sm text-yellow-700">
-                  <Clock className="h-4 w-4" />
-                  Not Signed
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        <PartyInfoCard
+          title="Nurse Practitioner"
+          iconColor="blue"
+          license={agreement.npLicense}
+          hasSigned={hasNPSigned}
+        />
 
         {/* Physician Information */}
-        <div className="rounded-md border bg-white shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="rounded-full bg-purple-100 p-2">
-              <User className="h-5 w-5 text-purple-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">Collaborating Physician</h2>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Name</p>
-              <p className="text-sm text-gray-900">
-                {agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Email</p>
-              <p className="text-sm text-gray-900">{agreement.physicianLicense.user.email}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">License Number</p>
-              <p className="text-sm text-gray-900">{agreement.physicianLicense.licenseNumber}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">License Type</p>
-              <p className="text-sm text-gray-900">{agreement.physicianLicense.licenseType}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Signature Status</p>
-              {hasPhysicianSigned() ? (
-                <span className="inline-flex items-center gap-1 text-sm text-green-700">
-                  <CheckCircle className="h-4 w-4" />
-                  Signed
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-sm text-yellow-700">
-                  <Clock className="h-4 w-4" />
-                  Not Signed
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        <PartyInfoCard
+          title="Collaborating Physician"
+          iconColor="purple"
+          license={agreement.physicianLicense}
+          hasSigned={hasPhysicianSigned}
+        />
       </div>
 
       {/* State Compliance Requirements */}
@@ -360,47 +189,39 @@ export default function AgreementDetailPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {agreement.state.physicianNpRatio && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">Physician to NP Ratio</p>
-              <p className="text-sm text-gray-900">
-                {agreement.state.physicianNpRatio}
-                {agreement.state.ratioIsFte && " (FTE)"}
-              </p>
-            </div>
+            <InfoField
+              label="Physician to NP Ratio"
+              value={`${agreement.state.physicianNpRatio}${agreement.state.ratioIsFte ? " (FTE)" : ""}`}
+            />
           )}
           {agreement.state.chartReviewFrequency && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">Chart Review Frequency</p>
-              <p className="text-sm text-gray-900">
-                {agreement.state.chartReviewFrequency}
-                {agreement.state.chartReviewPercentage &&
-                  ` - ${agreement.state.chartReviewPercentage}% of charts`}
-              </p>
-            </div>
+            <InfoField
+              label="Chart Review Frequency"
+              value={`${agreement.state.chartReviewFrequency}${
+                agreement.state.chartReviewPercentage
+                  ? ` - ${agreement.state.chartReviewPercentage}% of charts`
+                  : ""
+              }`}
+            />
           )}
           {agreement.state.qaMeetingFrequency && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">QA Meeting Frequency</p>
-              <p className="text-sm text-gray-900">{agreement.state.qaMeetingFrequency}</p>
-            </div>
+            <InfoField label="QA Meeting Frequency" value={agreement.state.qaMeetingFrequency} />
           )}
           {agreement.state.cpaRenewalFrequency && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">CPA Renewal</p>
-              <p className="text-sm text-gray-900">
-                {agreement.state.cpaRenewalFrequency}
-                {agreement.state.cpaAutoRenews && " (Auto-renews)"}
-              </p>
-            </div>
+            <InfoField
+              label="CPA Renewal"
+              value={`${agreement.state.cpaRenewalFrequency}${
+                agreement.state.cpaAutoRenews ? " (Auto-renews)" : ""
+              }`}
+            />
           )}
           {agreement.state.boardFilingRequired && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">Board Filing</p>
-              <p className="text-sm text-gray-900">
-                Required
-                {agreement.state.boardFilingFee && ` - Fee: $${agreement.state.boardFilingFee}`}
-              </p>
-            </div>
+            <InfoField
+              label="Board Filing"
+              value={`Required${
+                agreement.state.boardFilingFee ? ` - Fee: $${agreement.state.boardFilingFee}` : ""
+              }`}
+            />
           )}
         </div>
         {agreement.state.complianceNotes && (
@@ -442,7 +263,7 @@ export default function AgreementDetailPage() {
         </div>
       )}
 
-      {/* Agreement Status */}
+      {/* Agreement Status - Terminated */}
       {agreement.status === "terminated" && (
         <div className="rounded-md border border-red-200 bg-red-50 p-6">
           <div className="flex items-center gap-3 mb-2">
@@ -466,6 +287,66 @@ export default function AgreementDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface PartyInfoCardProps {
+  title: string;
+  iconColor: "blue" | "purple";
+  license: Agreement["npLicense"] | Agreement["physicianLicense"];
+  hasSigned: boolean;
+}
+
+function PartyInfoCard({ title, iconColor, license, hasSigned }: PartyInfoCardProps) {
+  const colorClasses = {
+    blue: { bg: "bg-blue-100", text: "text-blue-600" },
+    purple: { bg: "bg-purple-100", text: "text-purple-600" },
+  };
+  const colors = colorClasses[iconColor];
+
+  return (
+    <div className="rounded-md border bg-white shadow-sm p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`rounded-full ${colors.bg} p-2`}>
+          <User className={`h-5 w-5 ${colors.text}`} />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+      </div>
+      <div className="space-y-3">
+        <InfoField label="Name" value={license.user.displayName || license.user.email} />
+        <InfoField label="Email" value={license.user.email} />
+        <InfoField label="License Number" value={license.licenseNumber} />
+        <InfoField label="License Type" value={license.licenseType} />
+        <div>
+          <p className="text-sm font-medium text-gray-500">Signature Status</p>
+          {hasSigned ? (
+            <span className="inline-flex items-center gap-1 text-sm text-green-700">
+              <CheckCircle className="h-4 w-4" />
+              Signed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-sm text-yellow-700">
+              <Clock className="h-4 w-4" />
+              Not Signed
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface InfoFieldProps {
+  label: string;
+  value: string;
+}
+
+function InfoField({ label, value }: InfoFieldProps) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-gray-500">{label}</p>
+      <p className="text-sm text-gray-900">{value}</p>
     </div>
   );
 }

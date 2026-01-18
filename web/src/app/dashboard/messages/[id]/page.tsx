@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send, Lock, CheckCircle, AlertTriangle, Shield } from "lucide-react";
-import { auth, getDc } from "@/lib/firebase";
+import { ArrowLeft, Send, Lock, AlertTriangle, Shield } from "lucide-react";
+import { getDc } from "@/lib/firebase";
 import {
   getConversationById,
   getConversationMessages,
@@ -12,56 +12,16 @@ import {
 } from "@dataconnect/generated";
 import { toast } from "sonner";
 import { preFilterMessage } from "@/lib/message-filter";
-
-interface Message {
-  id: string;
-  messageType: string;
-  messageBody?: string | null;
-  containsBlockedContent?: boolean | null;
-  blockedContentType?: string | null;
-  readAt?: string | null;
-  deliveredAt?: string | null;
-  createdAt: string;
-  sender: {
-    id: string;
-    displayName?: string | null;
-    email: string;
-  };
-  conversation: {
-    id: string;
-    contactInfoUnlocked: boolean;
-  };
-}
-
-interface Conversation {
-  id: string;
-  conversationId: string;
-  status: string;
-  contactInfoUnlocked: boolean;
-  lastMessageAt?: string | null;
-  unreadCountNp?: number | null;
-  unreadCountPhysician?: number | null;
-  createdAt: string;
-  npUser: {
-    id: string;
-    displayName?: string | null;
-    email: string;
-  };
-  physicianUser: {
-    id: string;
-    displayName?: string | null;
-    email: string;
-  };
-  collaborationAgreement?: {
-    id: string;
-    status: string;
-    isActive: boolean;
-  } | null;
-}
+import { useAuth } from "@/providers/AuthProvider";
+import { getOtherParticipant } from "@/hooks/useOtherParticipant";
+import { formatMessageTimestamp } from "@/lib/format";
+import { LoadingState, StatusBadge } from "@/components";
+import type { Message, Conversation } from "@/types";
 
 export default function ConversationPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const conversationId = params.id as string;
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -69,18 +29,10 @@ export default function ConversationPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [messageInput, setMessageInput] = useState("");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [filterWarning, setFilterWarning] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const currentUserId = user?.uid ?? null;
 
   // Check message for contact info as user types
   useEffect(() => {
@@ -92,11 +44,7 @@ export default function ConversationPage() {
 
     if (!isUnlocked && messageInput.trim()) {
       const result = preFilterMessage(messageInput, !!isUnlocked);
-      if (result.shouldBlock) {
-        setFilterWarning(result.message);
-      } else {
-        setFilterWarning(null);
-      }
+      setFilterWarning(result.shouldBlock ? result.message : null);
     } else {
       setFilterWarning(null);
     }
@@ -117,7 +65,7 @@ export default function ConversationPage() {
         const { data } = await getConversationMessages(getDc(), { conversationId });
         setMessages(data.messages as Message[]);
 
-        // Mark unread messages as read using Promise.allSettled (fixes race condition)
+        // Mark unread messages as read
         const unreadMessages = data.messages.filter(
           (msg: Message) => !msg.readAt && msg.sender.id !== currentUserId
         );
@@ -126,8 +74,6 @@ export default function ConversationPage() {
           const markPromises = unreadMessages.map((msg: Message) =>
             markMessageAsRead(getDc(), { messageId: msg.id })
           );
-
-          // Fire all mark-as-read requests in parallel, don't wait for all to complete
           Promise.allSettled(markPromises).catch((err) =>
             console.error("Failed to mark some messages as read:", err)
           );
@@ -142,19 +88,16 @@ export default function ConversationPage() {
     if (currentUserId) {
       fetchConversation();
       fetchMessages();
-
-      // Poll for new messages every 5 seconds
       const interval = setInterval(fetchMessages, 5000);
       return () => clearInterval(interval);
     }
   }, [conversationId, currentUserId]);
 
   useEffect(() => {
-    // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  async function handleSendMessage(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     if (!messageInput.trim() || sending) return;
 
@@ -162,7 +105,6 @@ export default function ConversationPage() {
       conversation?.contactInfoUnlocked ||
       conversation?.collaborationAgreement?.isActive;
 
-    // Pre-filter check before sending
     const preFilterResult = preFilterMessage(messageInput, !!isUnlocked);
     if (preFilterResult.shouldBlock) {
       toast.error(preFilterResult.message, {
@@ -181,7 +123,6 @@ export default function ConversationPage() {
       setMessageInput("");
       setFilterWarning(null);
 
-      // Fetch messages immediately to show the new message
       const { data } = await getConversationMessages(getDc(), { conversationId });
       setMessages(data.messages as Message[]);
     } catch {
@@ -189,48 +130,14 @@ export default function ConversationPage() {
     } finally {
       setSending(false);
     }
-  };
+  }
 
-  const getOtherParticipant = () => {
-    if (!conversation || !currentUserId) return null;
-    if (conversation.npUser.id === currentUserId) {
-      return conversation.physicianUser;
-    }
-    return conversation.npUser;
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
-
-    if (date.toDateString() === now.toDateString()) {
-      return `${displayHours}:${displayMinutes} ${ampm}`;
-    }
-
-    return `${date.toLocaleDateString()} ${displayHours}:${displayMinutes} ${ampm}`;
-  };
-
-  const otherParticipant = getOtherParticipant();
-  const isContactInfoUnlocked = conversation?.contactInfoUnlocked || false;
-  const hasCPA = conversation?.collaborationAgreement?.isActive || false;
+  const otherParticipant = conversation ? getOtherParticipant(conversation, currentUserId) : null;
+  const isContactInfoUnlocked = conversation?.contactInfoUnlocked ?? false;
+  const hasCPA = conversation?.collaborationAgreement?.isActive ?? false;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Loading conversation...</div>
-      </div>
-    );
+    return <LoadingState message="Loading conversation..." />;
   }
 
   if (!conversation) {
@@ -259,10 +166,7 @@ export default function ConversationPage() {
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-sm text-gray-500">{otherParticipant?.email}</p>
               {hasCPA && (
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Active CPA
-                </span>
+                <StatusBadge variant="success" label="Active CPA" />
               )}
             </div>
           </div>
@@ -311,9 +215,7 @@ export default function ConversationPage() {
                 className={`flex ${isMine ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-md ${
-                    isMine ? "items-end" : "items-start"
-                  } flex flex-col gap-1`}
+                  className={`max-w-md ${isMine ? "items-end" : "items-start"} flex flex-col gap-1`}
                 >
                   {!isMine && (
                     <span className="text-xs text-gray-500 px-3">
@@ -325,8 +227,8 @@ export default function ConversationPage() {
                       isMine
                         ? "bg-blue-600 text-white"
                         : isBlocked
-                        ? "bg-red-100 border border-red-300"
-                        : "bg-white border border-gray-200"
+                          ? "bg-red-100 border border-red-300"
+                          : "bg-white border border-gray-200"
                     }`}
                   >
                     {isBlocked ? (
@@ -344,21 +246,15 @@ export default function ConversationPage() {
                         </div>
                       </div>
                     ) : (
-                      <p
-                        className={`text-sm ${
-                          isMine ? "text-white" : "text-gray-900"
-                        }`}
-                      >
+                      <p className={`text-sm ${isMine ? "text-white" : "text-gray-900"}`}>
                         {message.messageBody}
                       </p>
                     )}
                   </div>
                   <span
-                    className={`text-xs text-gray-400 px-3 ${
-                      isMine ? "text-right" : "text-left"
-                    }`}
+                    className={`text-xs text-gray-400 px-3 ${isMine ? "text-right" : "text-left"}`}
                   >
-                    {formatTimestamp(message.createdAt)}
+                    {formatMessageTimestamp(message.createdAt)}
                   </span>
                 </div>
               </div>
@@ -370,7 +266,6 @@ export default function ConversationPage() {
 
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="border-t bg-white px-6 py-4">
-        {/* Filter Warning */}
         {filterWarning && (
           <div className="mb-3 flex items-start gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2">
             <Shield className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />

@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ClipboardCheck, CheckCircle, AlertCircle, FileText } from "lucide-react";
+import { ClipboardCheck, FileText } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { auth, getDc } from "@/lib/firebase";
-import { getMyAgreements, submitChartReview, getChartReviews } from "@dataconnect/generated";
 import { toast } from "sonner";
+import { getDc } from "@/lib/firebase";
+import { formatDate, getDisplayName, getOtherPartyName } from "@/lib/format";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { SuccessMessage, PageHeader, AlertBanner, StateRequirementsCard, Button, StatusBadge } from "@/components";
+import { getChartReviews, getMyAgreements, submitChartReview } from "@dataconnect/generated";
 
 const chartReviewSchema = z.object({
   agreementId: z.string().min(1, "Please select a CPA"),
@@ -69,15 +72,15 @@ interface ChartReview {
   };
 }
 
-export default function ChartReviewPage() {
+export default function ChartReviewPage(): React.ReactNode {
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [chartReviews, setChartReviews] = useState<ChartReview[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [selectedAgreement, setSelectedAgreement] = useState<Agreement | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const currentUserId = useCurrentUserId();
 
   const {
     register,
@@ -94,15 +97,6 @@ export default function ChartReviewPage() {
   });
 
   const selectedAgreementId = watch("agreementId");
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     async function fetchAgreements() {
@@ -205,43 +199,21 @@ export default function ChartReviewPage() {
     }
   };
 
-  const getOtherParty = (agreement: Agreement) => {
-    if (!currentUserId) return "";
-    if (agreement.npLicense.user.id === currentUserId) {
-      return agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email;
-    }
-    return agreement.npLicense.user.displayName || agreement.npLicense.user.email;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
   const canSubmitReview = currentUserRole === "physician";
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Chart Review</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Submit and track chart reviews for your collaboration agreements
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Chart Review"
+        description="Submit and track chart reviews for your collaboration agreements"
+      />
 
       {!canSubmitReview && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-medium text-yellow-800">Physician Only</h3>
-              <p className="mt-1 text-sm text-yellow-700">
-                Only physicians can submit chart reviews. You can view past reviews below.
-              </p>
-            </div>
-          </div>
-        </div>
+        <AlertBanner
+          title="Physician Only"
+          description="Only physicians can submit chart reviews. You can view past reviews below."
+          variant="warning"
+        />
       )}
 
       {/* Submit Chart Review Form */}
@@ -249,14 +221,7 @@ export default function ChartReviewPage() {
         <div className="rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Submit New Chart Review</h2>
 
-          {successMessage && (
-            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <p className="text-sm font-medium text-green-800">{successMessage}</p>
-              </div>
-            </div>
-          )}
+          {successMessage && <SuccessMessage message={successMessage} />}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Select CPA */}
@@ -272,7 +237,7 @@ export default function ChartReviewPage() {
                 <option value="">Select a CPA...</option>
                 {agreements.map((agreement) => (
                   <option key={agreement.id} value={agreement.id}>
-                    {agreement.state.stateCode} - {getOtherParty(agreement)}
+                    {agreement.state.stateCode} - {getOtherPartyName(agreement, currentUserId)}
                   </option>
                 ))}
               </select>
@@ -283,23 +248,14 @@ export default function ChartReviewPage() {
 
             {/* State Requirements Display */}
             {selectedAgreement && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">State Requirements - {selectedAgreement.state.stateCode}</h3>
-                <div className="text-sm text-blue-700 space-y-1">
-                  {selectedAgreement.state.chartReviewFrequency && (
-                    <p>Frequency: {selectedAgreement.state.chartReviewFrequency}</p>
-                  )}
-                  {selectedAgreement.state.chartReviewPercentage && (
-                    <p>Required Percentage: {selectedAgreement.state.chartReviewPercentage}% of charts</p>
-                  )}
-                  {selectedAgreement.state.chartReviewControlledSubstancesOnly && (
-                    <p>Focus: Controlled substances only</p>
-                  )}
-                  {!selectedAgreement.state.chartReviewFrequency && (
-                    <p>No specific state requirements</p>
-                  )}
-                </div>
-              </div>
+              <StateRequirementsCard
+                stateCode={selectedAgreement.state.stateCode}
+                requirements={[
+                  { label: "Frequency", value: selectedAgreement.state.chartReviewFrequency },
+                  { label: "Required Percentage", value: selectedAgreement.state.chartReviewPercentage ? `${selectedAgreement.state.chartReviewPercentage}% of charts` : null },
+                  { label: "Focus", value: selectedAgreement.state.chartReviewControlledSubstancesOnly ? "Controlled substances only" : null },
+                ]}
+              />
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -394,14 +350,9 @@ export default function ChartReviewPage() {
 
             {/* Submit Button */}
             <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ClipboardCheck className="h-4 w-4" />
-                {submitting ? "Submitting..." : "Submit Review"}
-              </button>
+              <Button type="submit" icon={ClipboardCheck} loading={submitting}>
+                Submit Review
+              </Button>
             </div>
           </form>
         </div>
@@ -463,20 +414,13 @@ export default function ChartReviewPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {review.reviewer.displayName || review.reviewer.email}
+                      {getDisplayName(review.reviewer)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {review.isTimely ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                          <CheckCircle className="h-3 w-3" />
-                          Timely
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                          <AlertCircle className="h-3 w-3" />
-                          Late
-                        </span>
-                      )}
+                      <StatusBadge
+                        variant={review.isTimely ? "success" : "warning"}
+                        label={review.isTimely ? "Timely" : "Late"}
+                      />
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {review.notes ? (

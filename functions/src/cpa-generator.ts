@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { getStateById } from '@dataconnect/admin-generated';
 
 interface CPAGeneratorRequest {
   agreementId: string;
@@ -6,9 +7,6 @@ interface CPAGeneratorRequest {
   physicianUserId: string;
   stateId: string;
 }
-
-// Import the Data Connect generated functions
-import { getStateById } from '@dataconnect/admin-generated';
 
 /**
  * Cloud Function: generateCPADocument

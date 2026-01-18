@@ -1,23 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ClipboardCheck,
-  Calendar,
-  FileCheck,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  TrendingUp,
-  Plus
-} from "lucide-react";
-import { auth, getDc } from "@/lib/firebase";
+import { ClipboardCheck, Calendar, FileCheck, AlertCircle, TrendingUp } from "lucide-react";
 import { getMyAgreements } from "@dataconnect/generated";
-import { toast } from "sonner";
+import { useProtectedData } from "@/hooks";
+import { StatusBadge, LoadingState, MetricCard, QuickActionCard } from "@/components";
+import { getComplianceBadgeProps } from "@/components/StatusBadge";
+import type { ComplianceData, ComplianceStatus } from "@/types";
 
-interface Agreement {
+interface ComplianceAgreement {
   id: string;
   status: string;
   isActive: boolean;
@@ -49,111 +41,52 @@ interface Agreement {
   };
 }
 
-interface ComplianceStatus {
-  agreementId: string;
-  agreementName: string;
-  stateCode: string;
-  stateName: string;
-  chartReviewStatus: "compliant" | "warning" | "overdue";
-  qaMeetingStatus: "compliant" | "warning" | "overdue";
-  chartReviewFrequency: string | null;
-  chartReviewPercentage: number | null;
-  qaMeetingFrequency: string | null;
-  lastChartReview: Date | null;
-  lastQAMeeting: Date | null;
-  nextChartReviewDue: Date | null;
-  nextQAMeetingDue: Date | null;
-}
-
 export default function CompliancePage() {
-  const [agreements, setAgreements] = useState<Agreement[]>([]);
-  const [complianceData, setComplianceData] = useState<ComplianceStatus[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
+  const { data, loading, userId } = useProtectedData({
+    fetcher: async (dc) => {
+      const { data } = await getMyAgreements(dc);
+      const activeAgreements = data.collaborationAgreements.filter(
+        (a: { isActive?: boolean; status?: string }) => a.isActive && a.status === "active"
+      ) as unknown as ComplianceAgreement[];
+      return activeAgreements;
+    },
+    errorMessage: "Failed to load compliance data",
+  });
+
+  const agreements = data ?? [];
+
+  function buildComplianceData(agreements: ComplianceAgreement[], userId: string | null): ComplianceData[] {
+    return agreements.map((agreement) => {
+      const otherParty = userId === agreement.npLicense.user.id
+        ? agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email
+        : agreement.npLicense.user.displayName || agreement.npLicense.user.email;
+
+      return {
+        agreementId: agreement.id,
+        agreementName: `${agreement.state.stateCode} - ${otherParty}`,
+        stateCode: agreement.state.stateCode,
+        stateName: agreement.state.stateName,
+        chartReviewStatus: "compliant" as ComplianceStatus,
+        qaMeetingStatus: "compliant" as ComplianceStatus,
+        chartReviewFrequency: agreement.state.chartReviewFrequency,
+        chartReviewPercentage: agreement.state.chartReviewPercentage,
+        qaMeetingFrequency: agreement.state.qaMeetingFrequency,
+        lastChartReview: null,
+        lastQAMeeting: null,
+        nextChartReviewDue: null,
+        nextQAMeetingDue: null,
+      };
     });
-    return () => unsubscribe();
-  }, []);
+  }
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const { data } = await getMyAgreements(getDc());
-        const activeAgreements = data.collaborationAgreements.filter(
-          (a: { isActive?: boolean; status?: string }) => a.isActive && a.status === "active"
-        ) as unknown as Agreement[];
+  const complianceData = buildComplianceData(agreements, userId);
 
-        setAgreements(activeAgreements);
-
-        // Calculate compliance status for each agreement
-        const complianceStatuses: ComplianceStatus[] = activeAgreements.map((agreement) => {
-          const otherParty = currentUserId === agreement.npLicense.user.id
-            ? agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email
-            : agreement.npLicense.user.displayName || agreement.npLicense.user.email;
-
-          return {
-            agreementId: agreement.id,
-            agreementName: `${agreement.state.stateCode} - ${otherParty}`,
-            stateCode: agreement.state.stateCode,
-            stateName: agreement.state.stateName,
-            chartReviewStatus: "compliant",
-            qaMeetingStatus: "compliant",
-            chartReviewFrequency: agreement.state.chartReviewFrequency,
-            chartReviewPercentage: agreement.state.chartReviewPercentage,
-            qaMeetingFrequency: agreement.state.qaMeetingFrequency,
-            lastChartReview: null,
-            lastQAMeeting: null,
-            nextChartReviewDue: null,
-            nextQAMeetingDue: null,
-          };
-        });
-
-        setComplianceData(complianceStatuses);
-      } catch {
-        toast.error("Failed to load compliance data");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (currentUserId) {
-      fetchData();
-    }
-  }, [currentUserId]);
-
-  const getStatusBadge = (status: "compliant" | "warning" | "overdue") => {
-    if (status === "compliant") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-          <CheckCircle className="h-3 w-3" />
-          Compliant
-        </span>
-      );
-    }
-    if (status === "warning") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-          <Clock className="h-3 w-3" />
-          Due Soon
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-        <AlertCircle className="h-3 w-3" />
-        Overdue
-      </span>
-    );
-  };
-
-  const getOverallComplianceStatus = () => {
+  function getOverallCompliancePercentage(): number {
     const totalItems = complianceData.length * 2;
+    if (totalItems === 0) return 100;
+
     const compliantItems = complianceData.reduce((acc, item) => {
       let count = 0;
       if (item.chartReviewStatus === "compliant") count++;
@@ -161,11 +94,17 @@ export default function CompliancePage() {
       return acc + count;
     }, 0);
 
-    if (totalItems === 0) return 100;
     return Math.round((compliantItems / totalItems) * 100);
-  };
+  }
 
-  const compliancePercentage = getOverallComplianceStatus();
+  const compliancePercentage = getOverallCompliancePercentage();
+  const overdueItems = complianceData.filter(
+    (item) => item.chartReviewStatus === "overdue" || item.qaMeetingStatus === "overdue"
+  );
+
+  if (loading) {
+    return <LoadingState message="Loading compliance data..." />;
+  }
 
   return (
     <div className="space-y-6">
@@ -175,90 +114,56 @@ export default function CompliancePage() {
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active CPAs</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">{agreements.length}</p>
-            </div>
-            <div className="rounded-full bg-blue-100 p-3">
-              <FileCheck className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Overall Compliance</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">{compliancePercentage}%</p>
-            </div>
-            <div className="rounded-full bg-green-100 p-3">
-              <TrendingUp className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Chart Reviews</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">0</p>
-              <p className="text-xs text-gray-500">This Month</p>
-            </div>
-            <div className="rounded-full bg-purple-100 p-3">
-              <ClipboardCheck className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">QA Meetings</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">0</p>
-              <p className="text-xs text-gray-500">This Quarter</p>
-            </div>
-            <div className="rounded-full bg-orange-100 p-3">
-              <Calendar className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
+        <MetricCard
+          label="Active CPAs"
+          value={agreements.length}
+          iconBg="bg-blue-100"
+          iconColor="text-blue-600"
+          icon={FileCheck}
+        />
+        <MetricCard
+          label="Overall Compliance"
+          value={`${compliancePercentage}%`}
+          iconBg="bg-green-100"
+          iconColor="text-green-600"
+          icon={TrendingUp}
+        />
+        <MetricCard
+          label="Chart Reviews"
+          value={0}
+          subtitle="This Month"
+          iconBg="bg-purple-100"
+          iconColor="text-purple-600"
+          icon={ClipboardCheck}
+        />
+        <MetricCard
+          label="QA Meetings"
+          value={0}
+          subtitle="This Quarter"
+          iconBg="bg-orange-100"
+          iconColor="text-orange-600"
+          icon={Calendar}
+        />
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <button
+        <QuickActionCard
+          icon={ClipboardCheck}
+          iconBg="bg-blue-100"
+          iconColor="text-blue-600"
+          title="Submit Chart Review"
+          description="Record a new chart review"
           onClick={() => router.push("/dashboard/compliance/chart-review")}
-          className="flex items-center justify-between rounded-lg border bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50"
-        >
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-blue-100 p-2">
-              <ClipboardCheck className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Submit Chart Review</p>
-              <p className="text-sm text-gray-500">Record a new chart review</p>
-            </div>
-          </div>
-          <Plus className="h-5 w-5 text-gray-400" />
-        </button>
-
-        <button
+        />
+        <QuickActionCard
+          icon={Calendar}
+          iconBg="bg-green-100"
+          iconColor="text-green-600"
+          title="Schedule QA Meeting"
+          description="Set up a quality assurance meeting"
           onClick={() => router.push("/dashboard/compliance/qa-meeting")}
-          className="flex items-center justify-between rounded-lg border bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50"
-        >
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-green-100 p-2">
-              <Calendar className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Schedule QA Meeting</p>
-              <p className="text-sm text-gray-500">Set up a quality assurance meeting</p>
-            </div>
-          </div>
-          <Plus className="h-5 w-5 text-gray-400" />
-        </button>
+        />
       </div>
 
       {/* Compliance Status Table */}
@@ -269,11 +174,7 @@ export default function CompliancePage() {
             Track compliance requirements for each collaboration agreement
           </p>
         </div>
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">
-            Loading compliance data...
-          </div>
-        ) : complianceData.length === 0 ? (
+        {complianceData.length === 0 ? (
           <div className="p-8 text-center">
             <FileCheck className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No active CPAs</h3>
@@ -321,23 +222,13 @@ export default function CompliancePage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(item.chartReviewStatus)}
+                      <StatusBadge {...getComplianceBadgeProps(item.chartReviewStatus)} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(item.qaMeetingStatus)}
+                      <StatusBadge {...getComplianceBadgeProps(item.qaMeetingStatus)} />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-xs text-gray-600">
-                        {item.chartReviewFrequency && (
-                          <div>Chart: {item.chartReviewFrequency} ({item.chartReviewPercentage}%)</div>
-                        )}
-                        {item.qaMeetingFrequency && (
-                          <div>QA: {item.qaMeetingFrequency}</div>
-                        )}
-                        {!item.chartReviewFrequency && !item.qaMeetingFrequency && (
-                          <div className="text-gray-400">No specific requirements</div>
-                        )}
-                      </div>
+                      <RequirementsCell item={item} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link
@@ -362,30 +253,46 @@ export default function CompliancePage() {
       </div>
 
       {/* Compliance Alerts */}
-      {complianceData.some(item => item.chartReviewStatus === "overdue" || item.qaMeetingStatus === "overdue") && (
+      {overdueItems.length > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
             <div>
               <h3 className="text-sm font-medium text-red-800">Compliance Alerts</h3>
-              <div className="mt-2 text-sm text-red-700">
-                <ul className="list-disc list-inside space-y-1">
-                  {complianceData
-                    .filter(item => item.chartReviewStatus === "overdue" || item.qaMeetingStatus === "overdue")
-                    .map(item => (
-                      <li key={item.agreementId}>
-                        {item.agreementName}:
-                        {item.chartReviewStatus === "overdue" && " Chart review overdue"}
-                        {item.chartReviewStatus === "overdue" && item.qaMeetingStatus === "overdue" && " and "}
-                        {item.qaMeetingStatus === "overdue" && " QA meeting overdue"}
-                      </li>
-                    ))}
-                </ul>
-              </div>
+              <ul className="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+                {overdueItems.map((item) => (
+                  <li key={item.agreementId}>
+                    {item.agreementName}: {formatOverdueDescription(item)}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function formatOverdueDescription(item: ComplianceData): string {
+  const issues = [
+    item.chartReviewStatus === "overdue" && "Chart review overdue",
+    item.qaMeetingStatus === "overdue" && "QA meeting overdue",
+  ].filter(Boolean);
+  return issues.join(" and ");
+}
+
+function RequirementsCell({ item }: { item: ComplianceData }) {
+  if (!item.chartReviewFrequency && !item.qaMeetingFrequency) {
+    return <div className="text-xs text-gray-400">No specific requirements</div>;
+  }
+
+  return (
+    <div className="text-xs text-gray-600">
+      {item.chartReviewFrequency && (
+        <div>Chart: {item.chartReviewFrequency} ({item.chartReviewPercentage}%)</div>
+      )}
+      {item.qaMeetingFrequency && <div>QA: {item.qaMeetingFrequency}</div>}
     </div>
   );
 }

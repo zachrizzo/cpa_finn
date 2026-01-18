@@ -1,9 +1,9 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-
-
-// Import the Data Connect generated functions
-// Since we're in a Cloud Function, we need to use the admin generated SDK
 import { getLicenseWithFpaEligibility } from '@dataconnect/admin-generated';
+
+function pluralize(count: number, singular: string): string {
+  return count === 1 ? singular : `${singular}s`;
+}
 
 export const calculateFPAEligibility = onCall<{ licenseId: string }>(
   async (request) => {
@@ -91,7 +91,7 @@ export const calculateFPAEligibility = onCall<{ licenseId: string }>(
         return {
           status: 'fpa_eligible_future',
           hoursRemaining,
-          notes: `${state.stateName} requires ${state.fpaHoursRequired} supervised hours. You need ${hoursRemaining} more hours (approximately ${estimatedYears} year${estimatedYears > 1 ? 's' : ''} at full-time).`,
+          notes: `${state.stateName} requires ${state.fpaHoursRequired} supervised hours. You need ${hoursRemaining} more hours (approximately ${estimatedYears} ${pluralize(estimatedYears, 'year')} at full-time).`,
         };
       }
 
@@ -102,7 +102,7 @@ export const calculateFPAEligibility = onCall<{ licenseId: string }>(
         if (yearsCompleted >= state.fpaYearsRequired) {
           return {
             status: 'fpa_eligible_now',
-            notes: `You have completed ${yearsCompleted} year${yearsCompleted > 1 ? 's' : ''} of supervised practice (${state.fpaYearsRequired} year${state.fpaYearsRequired > 1 ? 's' : ''} required). Apply for FPA now!`,
+            notes: `You have completed ${yearsCompleted} ${pluralize(yearsCompleted, 'year')} of supervised practice (${state.fpaYearsRequired} ${pluralize(state.fpaYearsRequired, 'year')} required). Apply for FPA now!`,
           };
         }
 
@@ -112,7 +112,7 @@ export const calculateFPAEligibility = onCall<{ licenseId: string }>(
         return {
           status: 'fpa_eligible_future',
           yearsRemaining,
-          notes: `${state.stateName} requires ${state.fpaYearsRequired} year${state.fpaYearsRequired > 1 ? 's' : ''} of supervised practice. You need ${yearsRemaining.toFixed(1)} more year${yearsRemaining > 1 ? 's' : ''} (approximately ${monthsRemaining} month${monthsRemaining > 1 ? 's' : ''}).`,
+          notes: `${state.stateName} requires ${state.fpaYearsRequired} ${pluralize(state.fpaYearsRequired, 'year')} of supervised practice. You need ${yearsRemaining.toFixed(1)} more ${pluralize(yearsRemaining, 'year')} (approximately ${monthsRemaining} ${pluralize(monthsRemaining, 'month')}).`,
         };
       }
 
@@ -132,12 +132,7 @@ export const calculateFPAEligibility = onCall<{ licenseId: string }>(
     } catch (error: any) {
       console.error('Error calculating FPA eligibility:', error);
 
-      // Re-throw HttpsError instances
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-
-      // Wrap other errors
+      if (error instanceof HttpsError) throw error;
       throw new HttpsError('internal', `Failed to calculate FPA eligibility: ${error.message}`);
     }
   }

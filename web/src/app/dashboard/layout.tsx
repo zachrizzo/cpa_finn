@@ -3,14 +3,15 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
-import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import { LoadingState, ErrorBoundary } from "@/components";
+import Sidebar from "@/components/Sidebar";
 
-export default function DashboardLayout({
-  children,
-}: {
+interface DashboardLayoutProps {
   children: React.ReactNode;
-}) {
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps): React.ReactNode {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -20,19 +21,10 @@ export default function DashboardLayout({
     }
   }, [user, loading, router]);
 
-  // Show loading state while checking authentication
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Loading..." fullScreen />;
   }
 
-  // Don't render dashboard if not authenticated (middleware should handle redirect)
   if (!user) {
     return null;
   }
@@ -40,9 +32,11 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-8">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   );

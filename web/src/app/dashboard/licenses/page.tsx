@@ -1,50 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { Plus, Calculator, ExternalLink, CheckCircle } from "lucide-react";
 import { functions, getDc } from "@/lib/firebase";
 import { getMyLicenses, updateLicenseVerification, type GetMyLicensesData } from "@dataconnect/generated";
-
-type License = GetMyLicensesData['licenses'][number];
 import { httpsCallable } from "firebase/functions";
 import { toast } from "sonner";
-import { useAuth } from "@/providers/AuthProvider";
+import { useProtectedData } from "@/hooks";
+import { PageHeader, LinkButton, Button, StatusBadge, TableLoadingState, TableEmptyState } from "@/components";
+import { getVerificationBadgeProps } from "@/components/StatusBadge";
+import { formatDate } from "@/lib/format";
+import type { FPAEligibility } from "@/types";
 
-interface FPAEligibility {
-    status: 'fpa_automatic' | 'fpa_eligible_now' | 'fpa_eligible_future' | 'cpa_required';
-    notes: string;
-    hoursRemaining?: number;
-    yearsRemaining?: number;
-    eligibilityDate?: string;
-}
+type License = GetMyLicensesData['licenses'][number];
+
+const FPA_STATUS_CONFIG = {
+    fpa_automatic: { color: 'bg-green-100 text-green-800', label: 'FPA Automatic' },
+    fpa_eligible_now: { color: 'bg-blue-100 text-blue-800', label: 'FPA Eligible Now' },
+    fpa_eligible_future: { color: 'bg-yellow-100 text-yellow-800', label: 'FPA Future' },
+    cpa_required: { color: 'bg-gray-100 text-gray-800', label: 'CPA Required' },
+};
 
 export default function LicensesPage() {
-    const { user, loading: authLoading } = useAuth();
-    const [licenses, setLicenses] = useState<License[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { data, loading, refetch } = useProtectedData({
+        fetcher: async (dc) => {
+            const { data } = await getMyLicenses(dc);
+            return data.licenses;
+        },
+        errorMessage: "Failed to load licenses",
+    });
+
+    const licenses = data ?? [];
+
     const [calculatingLicenseId, setCalculatingLicenseId] = useState<string | null>(null);
     const [verifyingLicenseId, setVerifyingLicenseId] = useState<string | null>(null);
     const [fpaResults, setFpaResults] = useState<Record<string, FPAEligibility>>({});
 
-    useEffect(() => {
-        async function fetchLicenses() {
-            if (authLoading || !user) {
-                return;
-            }
-            try {
-                const { data } = await getMyLicenses(getDc());
-                setLicenses(data.licenses);
-            } catch {
-                toast.error("Failed to load licenses");
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchLicenses();
-    }, [authLoading, user]);
-
-    const calculateFPA = async (licenseId: string) => {
+    async function calculateFPA(licenseId: string): Promise<void> {
         setCalculatingLicenseId(licenseId);
         try {
             const calculateFPAEligibility = httpsCallable<{ licenseId: string }, FPAEligibility>(
@@ -58,9 +50,9 @@ export default function LicensesPage() {
         } finally {
             setCalculatingLicenseId(null);
         }
-    };
+    }
 
-    const markAsVerified = async (licenseId: string) => {
+    async function markAsVerified(licenseId: string): Promise<void> {
         setVerifyingLicenseId(licenseId);
         try {
             await updateLicenseVerification(getDc(), {
@@ -68,98 +60,31 @@ export default function LicensesPage() {
                 verificationStatus: "verified",
                 verificationMethod: "manual_state_board"
             });
-            // Update the local state to reflect the change
-            setLicenses(prev => prev.map(license =>
-                license.id === licenseId
-                    ? { ...license, verificationStatus: "verified", verificationDate: new Date().toISOString() }
-                    : license
-            ));
+            await refetch();
             toast.success("License marked as verified!");
         } catch {
             toast.error("Failed to update verification status. Please try again.");
         } finally {
             setVerifyingLicenseId(null);
         }
-    };
-
-    const getVerificationStatusDisplay = (license: License) => {
-        const isVerified = license.verificationStatus === 'verified';
-        const verificationDate = license.verificationDate ? new Date(license.verificationDate).toLocaleDateString() : null;
-
-        return (
-            <div className="space-y-1">
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                    {isVerified ? 'Verified' : 'Pending Verification'}
-                </span>
-                {isVerified && verificationDate && (
-                    <p className="text-xs text-gray-500">Verified on {verificationDate}</p>
-                )}
-            </div>
-        );
-    };
-
-    const getFPAStatusBadge = (fpaStatus: string | null | undefined, licenseId: string) => {
-        const result = fpaResults[licenseId];
-
-        if (result) {
-            const statusColors = {
-                'fpa_automatic': 'bg-green-100 text-green-800',
-                'fpa_eligible_now': 'bg-blue-100 text-blue-800',
-                'fpa_eligible_future': 'bg-yellow-100 text-yellow-800',
-                'cpa_required': 'bg-gray-100 text-gray-800',
-            };
-
-            const statusLabels = {
-                'fpa_automatic': 'FPA Automatic',
-                'fpa_eligible_now': 'FPA Eligible Now',
-                'fpa_eligible_future': 'FPA Future',
-                'cpa_required': 'CPA Required',
-            };
-
-            return (
-                <div className="space-y-1">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[result.status]}`}>
-                        {statusLabels[result.status]}
-                    </span>
-                    <p className="text-xs text-gray-600">{result.notes}</p>
-                    {result.hoursRemaining !== undefined && (
-                        <p className="text-xs text-gray-600">Hours remaining: {result.hoursRemaining}</p>
-                    )}
-                    {result.yearsRemaining !== undefined && (
-                        <p className="text-xs text-gray-600">Years remaining: {result.yearsRemaining.toFixed(1)}</p>
-                    )}
-                </div>
-            );
-        }
-
-        return fpaStatus ? (
-            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800">
-                {fpaStatus}
-            </span>
-        ) : (
-            <span className="text-gray-400">-</span>
-        );
-    };
+    }
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">My Licenses</h1>
-                <Link
-                    href="/dashboard/licenses/add"
-                    className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                    <Plus className="h-4 w-4" />
-                    Add License
-                </Link>
-            </div>
+            <PageHeader
+                title="My Licenses"
+                actions={
+                    <LinkButton href="/dashboard/licenses/add" icon={Plus}>
+                        Add License
+                    </LinkButton>
+                }
+            />
 
             <div className="rounded-md border bg-white shadow-sm">
                 <div className="relative w-full overflow-auto">
                     <table className="w-full caption-bottom text-sm text-left">
                         <thead className="[&_tr]:border-b">
-                            <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                            <tr className="border-b transition-colors hover:bg-muted/50">
                                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">State</th>
                                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">License Number</th>
                                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Type</th>
@@ -171,65 +96,21 @@ export default function LicensesPage() {
                             </tr>
                         </thead>
                         <tbody className="[&_tr:last-child]:border-0">
-                            {loading || authLoading ? (
-                                <tr>
-                                    <td colSpan={8} className="p-4 text-center">Loading licenses...</td>
-                                </tr>
+                            {loading ? (
+                                <TableLoadingState message="Loading licenses..." colSpan={8} />
                             ) : licenses.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="p-4 text-center text-gray-500">No licenses found. Add one to get started.</td>
-                                </tr>
+                                <TableEmptyState colSpan={8} message="No licenses found. Add one to get started." />
                             ) : (
                                 licenses.map((license) => (
-                                    <tr key={license.id || Math.random()} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                        <td className="p-4 align-middle font-medium">{license.state.stateName} ({license.state.stateCode})</td>
-                                        <td className="p-4 align-middle font-mono">{license.licenseNumber}</td>
-                                        <td className="p-4 align-middle">{license.licenseType}</td>
-                                        <td className="p-4 align-middle">{new Date(license.expirationDate).toLocaleDateString()}</td>
-                                        <td className="p-4 align-middle">
-                                            {getVerificationStatusDisplay(license)}
-                                        </td>
-                                        <td className="p-4 align-middle">
-                                            {license.state.licenseVerificationUrl ? (
-                                                <div className="flex flex-col gap-2">
-                                                    <a
-                                                        href={license.state.licenseVerificationUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
-                                                    >
-                                                        <ExternalLink className="h-3 w-3" />
-                                                        Verify on State Board
-                                                    </a>
-                                                    {license.verificationStatus !== 'verified' && (
-                                                        <button
-                                                            onClick={() => markAsVerified(license.id)}
-                                                            disabled={verifyingLicenseId === license.id}
-                                                            className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline text-sm disabled:opacity-50"
-                                                        >
-                                                            <CheckCircle className="h-3 w-3" />
-                                                            {verifyingLicenseId === license.id ? 'Updating...' : 'Mark as Verified'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400 text-sm">No verification URL available</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 align-middle">
-                                            {getFPAStatusBadge(license.fpaStatus, license.id)}
-                                        </td>
-                                        <td className="p-4 align-middle">
-                                            <button
-                                                onClick={() => calculateFPA(license.id)}
-                                                disabled={calculatingLicenseId === license.id}
-                                                className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-                                            >
-                                                <Calculator className="h-3 w-3" />
-                                                {calculatingLicenseId === license.id ? 'Calculating...' : 'Calculate FPA'}
-                                            </button>
-                                        </td>
-                                    </tr>
+                                    <LicenseRow
+                                        key={license.id}
+                                        license={license}
+                                        fpaResult={fpaResults[license.id]}
+                                        calculatingLicenseId={calculatingLicenseId}
+                                        verifyingLicenseId={verifyingLicenseId}
+                                        onCalculateFPA={calculateFPA}
+                                        onMarkVerified={markAsVerified}
+                                    />
                                 ))
                             )}
                         </tbody>
@@ -238,4 +119,140 @@ export default function LicensesPage() {
             </div>
         </div>
     );
+}
+
+interface LicenseRowProps {
+    license: License;
+    fpaResult?: FPAEligibility;
+    calculatingLicenseId: string | null;
+    verifyingLicenseId: string | null;
+    onCalculateFPA: (licenseId: string) => void;
+    onMarkVerified: (licenseId: string) => void;
+}
+
+function LicenseRow({
+    license,
+    fpaResult,
+    calculatingLicenseId,
+    verifyingLicenseId,
+    onCalculateFPA,
+    onMarkVerified,
+}: LicenseRowProps) {
+    const isVerified = license.verificationStatus === 'verified';
+    const verificationDate = license.verificationDate ? formatDate(license.verificationDate) : null;
+    const isCalculating = calculatingLicenseId === license.id;
+    const isVerifying = verifyingLicenseId === license.id;
+
+    return (
+        <tr className="border-b transition-colors hover:bg-muted/50">
+            <td className="p-4 align-middle font-medium">
+                {license.state.stateName} ({license.state.stateCode})
+            </td>
+            <td className="p-4 align-middle font-mono">{license.licenseNumber}</td>
+            <td className="p-4 align-middle">{license.licenseType}</td>
+            <td className="p-4 align-middle">{formatDate(license.expirationDate)}</td>
+            <td className="p-4 align-middle">
+                <div className="space-y-1">
+                    <StatusBadge {...getVerificationBadgeProps(license.verificationStatus)} showIcon={false} />
+                    {isVerified && verificationDate && (
+                        <p className="text-xs text-gray-500">Verified on {verificationDate}</p>
+                    )}
+                </div>
+            </td>
+            <td className="p-4 align-middle">
+                <VerificationCell
+                    license={license}
+                    isVerifying={isVerifying}
+                    onMarkVerified={onMarkVerified}
+                />
+            </td>
+            <td className="p-4 align-middle">
+                <FPAStatusCell fpaStatus={license.fpaStatus} fpaResult={fpaResult} />
+            </td>
+            <td className="p-4 align-middle">
+                <Button
+                    size="sm"
+                    icon={Calculator}
+                    onClick={() => onCalculateFPA(license.id)}
+                    loading={isCalculating}
+                >
+                    {isCalculating ? 'Calculating...' : 'Calculate FPA'}
+                </Button>
+            </td>
+        </tr>
+    );
+}
+
+function VerificationCell({
+    license,
+    isVerifying,
+    onMarkVerified,
+}: {
+    license: License;
+    isVerifying: boolean;
+    onMarkVerified: (licenseId: string) => void;
+}) {
+    if (!license.state.licenseVerificationUrl) {
+        return <span className="text-gray-400 text-sm">No verification URL available</span>;
+    }
+
+    return (
+        <div className="flex flex-col gap-2">
+            <a
+                href={license.state.licenseVerificationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
+            >
+                <ExternalLink className="h-3 w-3" />
+                Verify on State Board
+            </a>
+            {license.verificationStatus !== 'verified' && (
+                <button
+                    onClick={() => onMarkVerified(license.id)}
+                    disabled={isVerifying}
+                    className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline text-sm disabled:opacity-50"
+                >
+                    <CheckCircle className="h-3 w-3" />
+                    {isVerifying ? 'Updating...' : 'Mark as Verified'}
+                </button>
+            )}
+        </div>
+    );
+}
+
+function FPAStatusCell({
+    fpaStatus,
+    fpaResult,
+}: {
+    fpaStatus: string | null | undefined;
+    fpaResult?: FPAEligibility;
+}) {
+    if (fpaResult) {
+        const config = FPA_STATUS_CONFIG[fpaResult.status];
+        return (
+            <div className="space-y-1">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
+                    {config.label}
+                </span>
+                <p className="text-xs text-gray-600">{fpaResult.notes}</p>
+                {fpaResult.hoursRemaining !== undefined && (
+                    <p className="text-xs text-gray-600">Hours remaining: {fpaResult.hoursRemaining}</p>
+                )}
+                {fpaResult.yearsRemaining !== undefined && (
+                    <p className="text-xs text-gray-600">Years remaining: {fpaResult.yearsRemaining.toFixed(1)}</p>
+                )}
+            </div>
+        );
+    }
+
+    if (fpaStatus) {
+        return (
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800">
+                {fpaStatus}
+            </span>
+        );
+    }
+
+    return <span className="text-gray-400">-</span>;
 }

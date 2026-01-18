@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Plus, CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react";
-import { auth, getDc } from "@/lib/firebase";
+import { FileText, Plus } from "lucide-react";
 import { getMyAgreements } from "@dataconnect/generated";
-import { toast } from "sonner";
+import { useProtectedData } from "@/hooks";
+import { PageHeader, Button, FilterTabs, EmptyState, LoadingState, StatusBadge } from "@/components";
+import { getAgreementBadgeProps } from "@/components/StatusBadge";
+import { formatDate } from "@/lib/format";
 
 interface Agreement {
   id: string;
@@ -54,204 +56,114 @@ interface Agreement {
   };
 }
 
+type FilterKey = "all" | "active" | "pending" | "terminated";
+
+function getFilteredAgreements(agreements: Agreement[], filter: FilterKey): Agreement[] {
+  switch (filter) {
+    case "active":
+      return agreements.filter(a => a.isActive && a.status !== "terminated");
+    case "pending":
+      return agreements.filter(a => a.status === "pending_signatures" || a.status === "draft");
+    case "terminated":
+      return agreements.filter(a => a.status === "terminated");
+    default:
+      return agreements;
+  }
+}
+
+function getOtherParty(agreement: Agreement, currentUserId: string | null) {
+  if (!currentUserId) return null;
+  if (agreement.npLicense.user.id === currentUserId) {
+    return {
+      name: agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email,
+      role: "Physician",
+    };
+  }
+  return {
+    name: agreement.npLicense.user.displayName || agreement.npLicense.user.email,
+    role: "Nurse Practitioner",
+  };
+}
+
 export default function AgreementsPage() {
-  const [agreements, setAgreements] = useState<Agreement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<FilterKey>("all");
   const router = useRouter();
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUserId(user.uid);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    async function fetchAgreements() {
-      try {
-        const { data } = await getMyAgreements(getDc());
-        setAgreements(data.collaborationAgreements as Agreement[]);
-      } catch {
-        toast.error("Failed to load agreements");
-      } finally {
-        setLoading(false);
-      }
-    }
-    if (currentUserId) {
-      fetchAgreements();
-    }
-  }, [currentUserId]);
-
-  const getStatusBadge = (agreement: Agreement) => {
-    if (agreement.status === "terminated") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-          <XCircle className="h-3 w-3" />
-          Terminated
-        </span>
-      );
-    }
-    if (agreement.isActive) {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-          <CheckCircle className="h-3 w-3" />
-          Active
-        </span>
-      );
-    }
-    if (agreement.status === "pending_signatures") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-          <Clock className="h-3 w-3" />
-          Pending Signatures
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-        <AlertCircle className="h-3 w-3" />
-        Draft
-      </span>
-    );
-  };
-
-  const getOtherParty = (agreement: Agreement) => {
-    if (!currentUserId) return null;
-    if (agreement.npLicense.user.id === currentUserId) {
-      return {
-        name: agreement.physicianLicense.user.displayName || agreement.physicianLicense.user.email,
-        role: "Physician",
-      };
-    }
-    return {
-      name: agreement.npLicense.user.displayName || agreement.npLicense.user.email,
-      role: "Nurse Practitioner",
-    };
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const filteredAgreements = agreements.filter((agreement) => {
-    if (filter === "all") return true;
-    if (filter === "active") return agreement.isActive && agreement.status !== "terminated";
-    if (filter === "pending") return agreement.status === "pending_signatures" || agreement.status === "draft";
-    if (filter === "terminated") return agreement.status === "terminated";
-    return true;
+  const { data, loading, userId } = useProtectedData({
+    fetcher: async (dc) => {
+      const { data } = await getMyAgreements(dc);
+      return data.collaborationAgreements as Agreement[];
+    },
+    errorMessage: "Failed to load agreements",
   });
+
+  const agreements = data ?? [];
+
+  const filteredAgreements = useMemo(
+    () => getFilteredAgreements(agreements, filter),
+    [agreements, filter]
+  );
+
+  const filterTabs = useMemo(() => [
+    { key: "all", label: "All Agreements", count: agreements.length },
+    { key: "active", label: "Active", count: getFilteredAgreements(agreements, "active").length },
+    { key: "pending", label: "Pending", count: getFilteredAgreements(agreements, "pending").length },
+    { key: "terminated", label: "Terminated", count: getFilteredAgreements(agreements, "terminated").length },
+  ], [agreements]);
+
+  function handleNewAgreement(): void {
+    router.push("/dashboard/agreements/create");
+  }
+
+  const emptyMessage = filter === "all"
+    ? "Get started by creating your first collaboration agreement"
+    : `No ${filter} agreements at this time`;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Collaboration Agreements"
+          actions={
+            <Button icon={Plus} onClick={handleNewAgreement}>
+              New Agreement
+            </Button>
+          }
+        />
+        <LoadingState message="Loading agreements..." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Collaboration Agreements</h1>
-        <button
-          onClick={() => router.push("/dashboard/agreements/create")}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <Plus className="h-4 w-4" />
-          New Agreement
-        </button>
-      </div>
+      <PageHeader
+        title="Collaboration Agreements"
+        actions={
+          <Button icon={Plus} onClick={handleNewAgreement}>
+            New Agreement
+          </Button>
+        }
+      />
 
-      {/* Filter Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setFilter("all")}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
-              filter === "all"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
-          >
-            All Agreements
-            {filter === "all" && (
-              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-                {agreements.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setFilter("active")}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
-              filter === "active"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
-          >
-            Active
-            {filter === "active" && (
-              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-                {agreements.filter((a) => a.isActive && a.status !== "terminated").length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setFilter("pending")}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
-              filter === "pending"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
-          >
-            Pending
-            {filter === "pending" && (
-              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-                {agreements.filter((a) => a.status === "pending_signatures" || a.status === "draft").length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setFilter("terminated")}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
-              filter === "terminated"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            }`}
-          >
-            Terminated
-            {filter === "terminated" && (
-              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-                {agreements.filter((a) => a.status === "terminated").length}
-              </span>
-            )}
-          </button>
-        </nav>
-      </div>
+      <FilterTabs
+        tabs={filterTabs}
+        activeTab={filter}
+        onTabChange={(key) => setFilter(key as FilterKey)}
+      />
 
-      {/* Agreements Table */}
       <div className="rounded-md border bg-white shadow-sm">
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">
-            Loading agreements...
-          </div>
-        ) : filteredAgreements.length === 0 ? (
-          <div className="p-8 text-center">
-            <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No agreements found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {filter === "all"
-                ? "Get started by creating your first collaboration agreement"
-                : `No ${filter} agreements at this time`}
-            </p>
-            {filter === "all" && (
-              <div className="mt-6">
-                <button
-                  onClick={() => router.push("/dashboard/agreements/create")}
-                  className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  New Agreement
-                </button>
-              </div>
-            )}
-          </div>
+        {filteredAgreements.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="No agreements found"
+            description={emptyMessage}
+            action={filter === "all" ? {
+              label: "New Agreement",
+              onClick: handleNewAgreement,
+              icon: Plus,
+            } : undefined}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -276,7 +188,7 @@ export default function AgreementsPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {filteredAgreements.map((agreement) => {
-                  const otherParty = getOtherParty(agreement);
+                  const otherParty = getOtherParty(agreement, userId);
                   return (
                     <tr key={agreement.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -289,7 +201,9 @@ export default function AgreementsPage() {
                         <div className="text-sm text-gray-900">{agreement.state.stateCode}</div>
                         <div className="text-xs text-gray-500">{agreement.state.stateName}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(agreement)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge {...getAgreementBadgeProps(agreement.status, agreement.isActive)} />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(agreement.createdAt)}
                       </td>

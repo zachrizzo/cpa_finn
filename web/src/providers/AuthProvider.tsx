@@ -17,34 +17,45 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+const INVALID_TOKEN_ERROR_CODES = new Set([
+  "auth/invalid-refresh-token",
+  "auth/user-token-expired",
+  "auth/user-disabled",
+  "auth/user-not-found",
+]);
+
+function isInvalidTokenError(error: unknown): boolean {
+  const code = (error as { code?: string })?.code;
+  return code ? INVALID_TOKEN_ERROR_CODES.has(code) : false;
+}
+
+function clearSessionCookie(): void {
+  document.cookie = "__session=; path=/; max-age=0";
+}
+
+async function forceSignOutAndRedirect(): Promise<void> {
+  await auth.signOut();
+  clearSessionCookie();
+  window.location.href = "/login";
+}
+
 // Helper to set/remove the session cookie for middleware
 // Returns false if token is invalid and user should be signed out
 async function syncSessionCookie(user: User | null): Promise<boolean> {
-  if (user) {
-    try {
-      const token = await user.getIdToken();
-      // Set cookie with secure flags
-      // Note: httpOnly can only be set server-side, but this works for middleware
-      const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-      document.cookie = `__session=${token}; path=/; max-age=${60 * 60}; SameSite=Strict${secure}`;
-      return true;
-    } catch (error: unknown) {
-      console.error("Failed to sync session cookie:", error);
-      const firebaseError = error as { code?: string };
-      if (
-        firebaseError?.code === "auth/invalid-refresh-token" ||
-        firebaseError?.code === "auth/user-token-expired" ||
-        firebaseError?.code === "auth/user-disabled" ||
-        firebaseError?.code === "auth/user-not-found"
-      ) {
-        return false; // Signal that user should be signed out
-      }
-    }
-  } else {
-    // Remove the cookie
-    document.cookie = "__session=; path=/; max-age=0";
+  if (!user) {
+    clearSessionCookie();
+    return true;
   }
-  return true;
+
+  try {
+    const token = await user.getIdToken();
+    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    document.cookie = `__session=${token}; path=/; max-age=${60 * 60}; SameSite=Strict${secure}`;
+    return true;
+  } catch (error: unknown) {
+    console.error("Failed to sync session cookie:", error);
+    return !isInvalidTokenError(error);
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -58,11 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       const valid = await syncSessionCookie(currentUser);
       if (!valid && currentUser) {
-        // Token is invalid, sign out
         console.log("Invalid token on auth state change, signing out...");
-        await auth.signOut();
-        document.cookie = "__session=; path=/; max-age=0";
-        window.location.href = "/login";
+        await forceSignOutAndRedirect();
         return;
       }
       setLoading(false);
@@ -75,11 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       const valid = await syncSessionCookie(currentUser);
       if (!valid && currentUser) {
-        // Token is invalid, sign out
         console.log("Invalid token on id token change, signing out...");
-        await auth.signOut();
-        document.cookie = "__session=; path=/; max-age=0";
-        window.location.href = "/login";
+        await forceSignOutAndRedirect();
       }
     });
     return () => unsubscribe();
@@ -91,32 +96,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const interval = setInterval(async () => {
       try {
-        await user.getIdToken(true); // Force refresh
+        await user.getIdToken(true);
         await syncSessionCookie(user);
       } catch (error: unknown) {
         console.error("Token refresh failed:", error);
-        // If refresh token is invalid/expired, sign the user out
-        const firebaseError = error as { code?: string };
-        if (
-          firebaseError?.code === "auth/invalid-refresh-token" ||
-          firebaseError?.code === "auth/user-token-expired" ||
-          firebaseError?.code === "auth/user-disabled" ||
-          firebaseError?.code === "auth/user-not-found"
-        ) {
+        if (isInvalidTokenError(error)) {
           console.log("Session expired, signing out...");
-          await auth.signOut();
-          document.cookie = "__session=; path=/; max-age=0";
-          window.location.href = "/login";
+          await forceSignOutAndRedirect();
         }
       }
-    }, 50 * 60 * 1000); // 50 minutes
+    }, 50 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [user]);
 
   const signOutUser = useCallback(async () => {
     await auth.signOut();
-    document.cookie = "__session=; path=/; max-age=0";
+    clearSessionCookie();
     router.push("/login");
   }, [router]);
 

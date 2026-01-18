@@ -1,6 +1,9 @@
 "use client";
 
-interface State {
+import type { ReactElement } from "react";
+import { formatNumber, pluralize } from "@/lib/format";
+
+interface FPAState {
     stateName: string;
     stateCode: string;
     fpaAvailable: boolean;
@@ -15,18 +18,31 @@ interface State {
 }
 
 interface FPARequirementsCardProps {
-    state: State;
+    state: FPAState;
     className?: string;
 }
 
-/**
- * Determines the FPA status category based on state data
- */
-function getFPAStatus(state: State): {
+type StatusColor = "green" | "yellow" | "red";
+
+interface FPAStatusInfo {
     label: string;
-    color: "green" | "yellow" | "red";
+    color: StatusColor;
     description: string;
-} {
+}
+
+const STATUS_COLOR_CLASSES: Record<StatusColor, string> = {
+    green: "bg-green-100 text-green-800 border-green-200",
+    yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    red: "bg-red-100 text-red-800 border-red-200",
+};
+
+const BORDER_COLOR_CLASSES: Record<StatusColor, string> = {
+    green: "border-green-200",
+    yellow: "border-yellow-200",
+    red: "border-red-200",
+};
+
+function getFPAStatus(state: FPAState): FPAStatusInfo {
     if (!state.fpaAvailable) {
         return {
             label: "FPA Not Available",
@@ -66,34 +82,41 @@ function getFPAStatus(state: State): {
     };
 }
 
-/**
- * Format a number with commas for display
- */
-function formatNumber(num: number): string {
-    return num.toLocaleString();
+function RequirementItem({ children }: { children: React.ReactNode }): ReactElement {
+    return (
+        <li className="flex items-start gap-2 text-sm">
+            <span className="text-green-600 mt-0.5">&#10003;</span>
+            <span className="text-gray-700">{children}</span>
+        </li>
+    );
 }
 
-/**
- * FPA Requirements Card Component
- * Displays state-specific FPA requirements and compliance information
- */
+function InfoBox({
+    variant,
+    children,
+}: {
+    variant: "blue" | "amber" | "gray" | "green";
+    children: React.ReactNode;
+}): ReactElement {
+    const variantClasses = {
+        blue: "bg-blue-50 border-blue-100 text-blue-800",
+        amber: "bg-amber-50 border-amber-100 text-amber-800",
+        gray: "bg-gray-50 border-gray-100 text-gray-700",
+        green: "bg-green-50 border-green-100 text-green-800",
+    };
+
+    return (
+        <div className={`mt-3 p-3 rounded-md border ${variantClasses[variant]}`}>
+            <p className="text-sm">{children}</p>
+        </div>
+    );
+}
+
 export default function FPARequirementsCard({
     state,
     className = "",
-}: FPARequirementsCardProps) {
+}: FPARequirementsCardProps): ReactElement {
     const status = getFPAStatus(state);
-
-    const statusColorClasses = {
-        green: "bg-green-100 text-green-800 border-green-200",
-        yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        red: "bg-red-100 text-red-800 border-red-200",
-    };
-
-    const borderColorClasses = {
-        green: "border-green-200",
-        yellow: "border-yellow-200",
-        red: "border-red-200",
-    };
 
     const hasRequirements =
         state.fpaHoursRequired ||
@@ -104,7 +127,7 @@ export default function FPARequirementsCard({
 
     return (
         <div
-            className={`bg-white rounded-lg border-2 ${borderColorClasses[status.color]} p-4 ${className}`}
+            className={`bg-white rounded-lg border-2 ${BORDER_COLOR_CLASSES[status.color]} p-4 ${className}`}
         >
             {/* Header with state name and status badge */}
             <div className="flex items-start justify-between gap-3 mb-3">
@@ -117,13 +140,12 @@ export default function FPARequirementsCard({
                     </p>
                 </div>
                 <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${statusColorClasses[status.color]} whitespace-nowrap`}
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR_CLASSES[status.color]} whitespace-nowrap`}
                 >
                     {status.label}
                 </span>
             </div>
 
-            {/* Divider */}
             <div className="border-t border-gray-200 my-3" />
 
             {/* Requirements list */}
@@ -134,60 +156,43 @@ export default function FPARequirementsCard({
                     </h4>
                     <ul className="space-y-1.5">
                         {state.fpaHoursRequired && (
-                            <li className="flex items-start gap-2 text-sm">
-                                <span className="text-green-600 mt-0.5">&#10003;</span>
-                                <span className="text-gray-700">
-                                    <span className="font-medium">
-                                        {formatNumber(state.fpaHoursRequired)} hours
-                                    </span>{" "}
-                                    of supervised practice required
-                                </span>
-                            </li>
+                            <RequirementItem>
+                                <span className="font-medium">
+                                    {formatNumber(state.fpaHoursRequired)} hours
+                                </span>{" "}
+                                of supervised practice required
+                            </RequirementItem>
                         )}
 
                         {state.fpaYearsRequired && (
-                            <li className="flex items-start gap-2 text-sm">
-                                <span className="text-green-600 mt-0.5">&#10003;</span>
-                                <span className="text-gray-700">
-                                    <span className="font-medium">
-                                        {state.fpaYearsRequired}{" "}
-                                        {state.fpaYearsRequired === 1 ? "year" : "years"}
-                                    </span>{" "}
-                                    of supervised practice required
-                                </span>
-                            </li>
+                            <RequirementItem>
+                                <span className="font-medium">
+                                    {state.fpaYearsRequired} {pluralize(state.fpaYearsRequired, "year")}
+                                </span>{" "}
+                                of supervised practice required
+                            </RequirementItem>
                         )}
 
                         {state.fpaWithinStateRequired && (
-                            <li className="flex items-start gap-2 text-sm">
-                                <span className="text-green-600 mt-0.5">&#10003;</span>
-                                <span className="text-gray-700">
-                                    Must be completed{" "}
-                                    <span className="font-medium">in-state</span>
-                                </span>
-                            </li>
+                            <RequirementItem>
+                                Must be completed <span className="font-medium">in-state</span>
+                            </RequirementItem>
                         )}
 
                         {state.fpaCmeHoursRequired && (
-                            <li className="flex items-start gap-2 text-sm">
-                                <span className="text-green-600 mt-0.5">&#10003;</span>
-                                <span className="text-gray-700">
-                                    <span className="font-medium">
-                                        {formatNumber(state.fpaCmeHoursRequired)} CME hours
-                                    </span>{" "}
-                                    required
-                                </span>
-                            </li>
+                            <RequirementItem>
+                                <span className="font-medium">
+                                    {formatNumber(state.fpaCmeHoursRequired)} CME hours
+                                </span>{" "}
+                                required
+                            </RequirementItem>
                         )}
 
                         {state.fpaRequiresApplication && (
-                            <li className="flex items-start gap-2 text-sm">
-                                <span className="text-green-600 mt-0.5">&#10003;</span>
-                                <span className="text-gray-700">
-                                    <span className="font-medium">Application required</span>{" "}
-                                    after meeting requirements
-                                </span>
-                            </li>
+                            <RequirementItem>
+                                <span className="font-medium">Application required</span>{" "}
+                                after meeting requirements
+                            </RequirementItem>
                         )}
                     </ul>
                 </div>
@@ -195,44 +200,35 @@ export default function FPARequirementsCard({
 
             {/* CPA Required notice */}
             {state.cpaRequired && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
-                    <p className="text-sm text-blue-800">
-                        <span className="font-medium">Note:</span> This state requires a
-                        Collaborative Practice Agreement (CPA) until FPA requirements are
-                        met.
-                    </p>
-                </div>
+                <InfoBox variant="blue">
+                    <span className="font-medium">Note:</span> This state requires a
+                    Collaborative Practice Agreement (CPA) until FPA requirements are
+                    met.
+                </InfoBox>
             )}
 
             {/* No FPA - CPA required */}
             {!state.fpaAvailable && state.cpaRequired && (
-                <div className="mt-3 p-3 bg-amber-50 rounded-md border border-amber-100">
-                    <p className="text-sm text-amber-800">
-                        <span className="font-medium">Important:</span> Without FPA, a
-                        Collaborative Practice Agreement (CPA) with a supervising
-                        physician is required to practice.
-                    </p>
-                </div>
+                <InfoBox variant="amber">
+                    <span className="font-medium">Important:</span> Without FPA, a
+                    Collaborative Practice Agreement (CPA) with a supervising
+                    physician is required to practice.
+                </InfoBox>
             )}
 
             {/* Compliance notes */}
             {state.complianceNotes && (
-                <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-100">
-                    <p className="text-sm text-gray-700">
-                        <span className="font-medium">Note:</span>{" "}
-                        {state.complianceNotes}
-                    </p>
-                </div>
+                <InfoBox variant="gray">
+                    <span className="font-medium">Note:</span> {state.complianceNotes}
+                </InfoBox>
             )}
 
             {/* No requirements message for automatic states */}
             {!hasRequirements && state.fpaAvailable && state.fpaAutomaticWithLicense && (
-                <div className="p-3 bg-green-50 rounded-md border border-green-100">
-                    <p className="text-sm text-green-800">
-                        No additional requirements - FPA is granted with your NP license
-                        in {state.stateName}.
-                    </p>
-                </div>
+                <InfoBox variant="green">
+                    No additional requirements - FPA is granted with your NP license
+                    in {state.stateName}.
+                </InfoBox>
             )}
         </div>
     );
@@ -241,7 +237,7 @@ export default function FPARequirementsCard({
 /**
  * Helper function to check if a state requires supervised hours/years tracking
  */
-export function stateRequiresSupervisedTracking(state: State | null | undefined): boolean {
+export function stateRequiresSupervisedTracking(state: FPAState | null | undefined): boolean {
     if (!state) return false;
     return Boolean(state.fpaHoursRequired || state.fpaYearsRequired);
 }
