@@ -1,5 +1,12 @@
 import { auth, dc } from "./firebase";
-import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    updateProfile,
+    type User,
+    GoogleAuthProvider,
+    signInWithPopup,
+} from "firebase/auth";
 import { upsertUserProfile, createPhysicianDirectory, createNpDirectory } from "@dataconnect/generated";
 
 const DEFAULT_DIRECTORY_CONFIG = {
@@ -19,6 +26,23 @@ const DEFAULT_DIRECTORY_CONFIG = {
         cpaNeededStates: "CA,TX,NY,FL",
     },
 } as const;
+
+function setSessionCookie(token: string): void {
+    // This cookie is read by `web/middleware.ts` to gate protected routes.
+    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    document.cookie = `__session=${token}; path=/; max-age=${60 * 60}; SameSite=Strict${secure}`;
+}
+
+async function syncSessionCookieFromUser(user: User): Promise<void> {
+    try {
+        const token = await user.getIdToken();
+        setSessionCookie(token);
+    } catch (error) {
+        // AuthProvider will retry on auth state changes; this is a best-effort
+        // sync to avoid a race with middleware redirects after login.
+        console.warn("Failed to set session cookie after auth:", error);
+    }
+}
 
 async function createDirectoryProfile(role: string): Promise<void> {
     if (!dc) return;
@@ -55,6 +79,8 @@ export async function signUpUser(
         await updateProfile(auth.currentUser, { displayName });
     }
 
+    await syncSessionCookieFromUser(userCredential.user);
+
     try {
         await syncUserToDataConnect(displayName, role);
     } catch (error) {
@@ -64,10 +90,18 @@ export async function signUpUser(
     return userCredential.user;
 }
 
+export async function signInWithEmail(email: string, password: string) {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    await syncSessionCookieFromUser(userCredential.user);
+    return userCredential.user;
+}
+
 export async function signInWithGoogle(role?: string) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
+
+    await syncSessionCookieFromUser(user);
 
     if (role) {
         try {
