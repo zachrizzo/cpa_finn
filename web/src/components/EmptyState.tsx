@@ -1,12 +1,13 @@
 "use client";
 
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { type LucideIcon } from "lucide-react";
 
 export interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description?: string;
+  children?: ReactNode;
   action?: {
     label: string;
     onClick: () => void;
@@ -18,6 +19,7 @@ export function EmptyState({
   icon: Icon,
   title,
   description,
+  children,
   action,
 }: EmptyStateProps): ReactElement {
   return (
@@ -25,6 +27,7 @@ export function EmptyState({
       <Icon className="mx-auto h-12 w-12 text-gray-400" />
       <h3 className="mt-2 text-sm font-medium text-gray-900">{title}</h3>
       {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+      {children}
       {action && (
         <div className="mt-6">
           <button

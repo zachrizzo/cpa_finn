@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { signInWithGoogle } from "@/lib/auth-helpers";
@@ -32,23 +33,37 @@ export default function GoogleSignInButton({
   mode = "signin",
 }: GoogleSignInButtonProps): React.ReactNode {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   async function handleGoogleAuth(): Promise<void> {
+    if (loading) return;
+    setLoading(true);
     try {
       await signInWithGoogle(role);
       router.push("/dashboard");
-    } catch {
+    } catch (err: unknown) {
       const action = mode === "signin" ? "Sign In" : "Sign Up";
-      toast.error(`Google ${action} failed`);
+      const code = (err as { code?: string })?.code;
+      const message = (err as { message?: string })?.message;
+      console.error("Google auth failed:", err);
+      toast.error(`Google ${action} failed${code ? ` (${code})` : ""}${message ? `: ${message}` : ""}`);
+    } finally {
+      setLoading(false);
     }
   }
 
   const buttonText = mode === "signin" ? "Sign in with Google" : "Sign up with Google";
 
   return (
-    <Button variant="outline" type="button" className="w-full" onClick={handleGoogleAuth}>
+    <Button
+      variant="outline"
+      type="button"
+      className="w-full"
+      onClick={handleGoogleAuth}
+      disabled={loading}
+    >
       <GoogleIcon />
-      {buttonText}
+      {loading ? "Opening Google..." : buttonText}
     </Button>
   );
 }
