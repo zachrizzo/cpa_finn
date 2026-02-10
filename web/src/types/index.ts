@@ -2,6 +2,16 @@
  * Shared type definitions used across the application
  */
 
+// Next.js 15 Page Props - params and searchParams are now Promises
+// Use this type for pages that don't need URL params to prevent enumeration warnings
+export interface PageProps<
+  P extends Record<string, string> = Record<string, never>,
+  S extends Record<string, string | string[] | undefined> = Record<string, string | string[] | undefined>
+> {
+  params: Promise<P>;
+  searchParams: Promise<S>;
+}
+
 // User types
 export interface User {
   id: string;
